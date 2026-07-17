@@ -1,2 +1,0 @@
-import { callbackUrl, configured, cookie, unseal } from "../_facebook.js";
-export default async function handler(req, res) { if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" }); let ready = configured(), session = ready ? unseal(cookie(req, "scs_facebook")) : null; return res.status(200).json({ configured: ready, connected: Boolean(session?.accessToken), account: session ? { id: session.id, name: session.name, picture: session.picture } : null, callbackUrl: callbackUrl(req) }); }
