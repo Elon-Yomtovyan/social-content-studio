@@ -1,0 +1,2 @@
+import{cookie,unseal,callbackUrl}from'../../../../lib/instagram-session.js';
+export async function GET(request){let configured=Boolean(process.env.META_APP_ID&&process.env.META_APP_SECRET&&process.env.INSTAGRAM_SESSION_SECRET),session=configured?await unseal(cookie(request,'scs_instagram')):null;return Response.json({configured,connected:Boolean(session?.accessToken),account:session?{username:session.username,accountType:session.accountType,profilePicture:session.profilePicture,mediaCount:session.mediaCount}:null,callbackUrl:callbackUrl(request)})}
