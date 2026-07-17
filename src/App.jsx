@@ -1,15 +1,15 @@
 'use client';
 import React,{useEffect,useMemo,useState}from'react';import*as I from'lucide-react';import{unzip}from'fflate';
-import'./src/enhanced.css';
-import'./src/ai.css';
-import'./src/backend.css';
-import'./src/security.css';
-import'./src/session.css';
-import'./src/calendar.css';
-import'./src/settings.css';
-import'./src/jobs.css';
-import'./src/refinement.css';
-import'./src/workflow.css';
+import'./enhanced.css';
+import'./ai.css';
+import'./backend.css';
+import'./security.css';
+import'./session.css';
+import'./calendar.css';
+import'./settings.css';
+import'./jobs.css';
+import'./refinement.css';
+import'./workflow.css';
 // Client persistence is unavailable during the server-rendering pass.
 // A no-op server shim keeps the initial render deterministic; the browser
 // immediately uses its native localStorage implementation during hydration.
