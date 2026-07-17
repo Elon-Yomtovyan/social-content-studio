@@ -17,7 +17,7 @@ export default async function handler(req,res){
     const response=await fetch('https://api.openai.com/v1/images/edits',{method:'POST',headers:{Authorization:`Bearer ${process.env.OPENAI_API_KEY}`,'Content-Type':'application/json'},body:JSON.stringify({model:'gpt-image-2',images:sources.map(image_url=>({image_url})),prompt:promptFor({idea,template,platform,brand,refinement,materialNames}),n:1,size:'1024x1024',quality:'high',output_format:'jpeg',output_compression:92})});
     const body=await response.json();
     if(!response.ok)throw new Error(body?.error?.message||'Image generation failed');
-    const images=(body.data||[]).map((x,i)=>({src:`data:image/jpeg;base64,${x.b64_json}`,width:1024,height:1024,style:['Product transformation','Quantified proof','Campaign story'][i]||`Direction ${i+1}`,platform:platform||'Instagram'}));
-    return res.status(200).json({images});
+    const outputImages=(body.data||[]).map((x,i)=>({src:`data:image/jpeg;base64,${x.b64_json}`,width:1024,height:1024,style:['Product transformation','Quantified proof','Campaign story'][i]||`Direction ${i+1}`,platform:platform||'Instagram'}));
+    return res.status(200).json({images:outputImages});
   }catch(error){return res.status(500).json({error:error.message||'Generation failed'})}
 }
