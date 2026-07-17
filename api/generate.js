@@ -1,4 +1,5 @@
 import{createHash,timingSafeEqual}from'node:crypto';
+export const maxDuration=300;
 const SYSTEM_STYLE=`Create a finished, premium social media advertising image for an AI visual-content platform. The result must look art-directed and agency-produced, not like a generic template. Preserve the uploaded product's exact identity, silhouette, materials, hardware, color and proportions. Use a clean white or very pale blue editorial background, deep navy typography, vivid royal-blue emphasis, generous whitespace, rounded image panels, subtle borders and realistic soft shadows. Generate any required derivative product photography inside the composition: clean packshot, lifestyle scene, on-model placement, alternate angle or macro detail. Do not invent a different product. Typography must be crisp, correctly spelled and highly legible. Avoid logos, watermarks, fake UI, decorative clutter, neon, excessive gradients and tiny text.`;
 function allowedOrigin(req){let origin=req.headers.origin||'',own=`https://${req.headers.host}`;return origin===own||origin===process.env.ALLOWED_ORIGIN?origin:''}
 function authorized(req){let expected=process.env.GENERATION_ACCESS_KEY||'',cookie=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('scs_auth='))?.slice(9)||'',valid=expected?createHash('sha256').update(expected).digest('hex'):'';if(!cookie||!valid)return false;let a=Buffer.from(cookie),b=Buffer.from(valid);return a.length===b.length&&timingSafeEqual(a,b)}
@@ -13,7 +14,7 @@ export default async function handler(req,res){
   try{
     const{image,idea,template,platform,brand}=req.body||{};
     if(!image||!image.startsWith('data:image/')||image.length>12_000_000)return res.status(400).json({error:'A valid product image under 9MB is required'});
-    const response=await fetch('https://api.openai.com/v1/images/edits',{method:'POST',headers:{Authorization:`Bearer ${process.env.OPENAI_API_KEY}`,'Content-Type':'application/json'},body:JSON.stringify({model:'gpt-image-2',images:[{image_url:image}],prompt:promptFor({idea,template,platform,brand}),n:3,size:'1024x1024',quality:'high',output_format:'jpeg',output_compression:92})});
+    const response=await fetch('https://api.openai.com/v1/images/edits',{method:'POST',headers:{Authorization:`Bearer ${process.env.OPENAI_API_KEY}`,'Content-Type':'application/json'},body:JSON.stringify({model:'gpt-image-2',images:[{image_url:image}],prompt:promptFor({idea,template,platform,brand}),n:1,size:'1024x1024',quality:'high',output_format:'jpeg',output_compression:92})});
     const body=await response.json();
     if(!response.ok)throw new Error(body?.error?.message||'Image generation failed');
     const images=(body.data||[]).map((x,i)=>({src:`data:image/jpeg;base64,${x.b64_json}`,width:1024,height:1024,style:['Product transformation','Quantified proof','Campaign story'][i]||`Direction ${i+1}`,platform:platform||'Instagram'}));
