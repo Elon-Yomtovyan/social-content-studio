@@ -1623,7 +1623,7 @@ function FacebookConnection({ notify }) {
   const refresh = async () => {
     setState((s) => ({ ...s, loading: true }));
     try {
-      let response = await fetch("/api/facebook/status", { credentials: "include" }),
+      let response = await fetch("/api/facebook/account?action=status", { credentials: "include" }),
         body = await response.json();
       setState({ ...body, loading: false });
     } catch {
@@ -1640,7 +1640,7 @@ function FacebookConnection({ notify }) {
   }, []);
   const test = async () => {
     try {
-      let response = await fetch("/api/facebook/test", { credentials: "include" }), body = await response.json();
+      let response = await fetch("/api/facebook/account?action=test", { credentials: "include" }), body = await response.json();
       if (!response.ok) throw new Error(body.error || "Connection test failed");
       notify(`Facebook connection verified for ${body.name}`);
     } catch (error) { notify(error.message); }
@@ -1649,7 +1649,7 @@ function FacebookConnection({ notify }) {
     if (!confirm("Disconnect this Facebook Page? Scheduled content will stay in your calendar.")) return;
     setDisconnecting(true);
     try {
-      let response = await fetch("/api/facebook/disconnect", { method: "POST", credentials: "include" });
+      let response = await fetch("/api/facebook/account?action=disconnect", { method: "POST", credentials: "include" });
       if (!response.ok) throw new Error();
       await refresh();
       notify("Facebook Page disconnected");
