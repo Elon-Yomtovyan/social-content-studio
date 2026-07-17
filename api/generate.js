@@ -13,7 +13,7 @@ export default async function handler(req,res){
   try{
     const{image,idea,template,platform,brand}=req.body||{};
     if(!image||!image.startsWith('data:image/')||image.length>12_000_000)return res.status(400).json({error:'A valid product image under 9MB is required'});
-    const response=await fetch('https://api.openai.com/v1/images/edits',{method:'POST',headers:{Authorization:`Bearer ${process.env.OPENAI_API_KEY}`,'Content-Type':'application/json'},body:JSON.stringify({model:'gpt-image-2',images:[{image_url:image}],prompt:promptFor({idea,template,platform,brand}),n:3,size:'1024x1024',quality:'high',input_fidelity:'high',output_format:'jpeg',output_compression:92})});
+    const response=await fetch('https://api.openai.com/v1/images/edits',{method:'POST',headers:{Authorization:`Bearer ${process.env.OPENAI_API_KEY}`,'Content-Type':'application/json'},body:JSON.stringify({model:'gpt-image-2',images:[{image_url:image}],prompt:promptFor({idea,template,platform,brand}),n:3,size:'1024x1024',quality:'high',output_format:'jpeg',output_compression:92})});
     const body=await response.json();
     if(!response.ok)throw new Error(body?.error?.message||'Image generation failed');
     const images=(body.data||[]).map((x,i)=>({src:`data:image/jpeg;base64,${x.b64_json}`,width:1024,height:1024,style:['Product transformation','Quantified proof','Campaign story'][i]||`Direction ${i+1}`,platform:platform||'Instagram'}));
