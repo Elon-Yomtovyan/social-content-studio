@@ -13,6 +13,7 @@ import "./jobs.css";
 import "./refinement.css";
 import "./workflow.css";
 import "./facebook.css";
+import "./placements.css";
 // Client persistence is unavailable during the server-rendering pass.
 // A no-op server shim keeps the initial render deterministic; the browser
 // immediately uses its native localStorage implementation during hydration.
@@ -64,6 +65,15 @@ const platforms = [
   "X",
   "YouTube Shorts",
 ];
+const ideaPlacements = {
+  Instagram: ["Instagram Feed", "Instagram Story", "Instagram Reel"],
+  Facebook: ["Facebook Feed", "Facebook Story"],
+  LinkedIn: ["LinkedIn"],
+  TikTok: ["TikTok"],
+  X: ["X"],
+  "YouTube Shorts": ["YouTube Shorts"],
+};
+const firstPlacement = (platform) => ideaPlacements[platform]?.[0] || platform;
 const runtimeId =
   typeof crypto !== "undefined" && crypto.randomUUID
     ? crypto.randomUUID()
@@ -300,7 +310,8 @@ function App() {
                 ideaId: id,
                 title: idea.title,
                 format: idea.format,
-                platforms: idea.platforms,
+                platforms: idea.destinations?.length ? idea.destinations : idea.platforms,
+                destinations: idea.destinations?.length ? idea.destinations : idea.platforms,
                 campaign: "AI Growth",
                 materials: 0,
                 status: "Approved",
@@ -623,11 +634,14 @@ function Ideas({ data, setData, approve, refine, reject, notify }) {
       audience: "Ecommerce marketing teams",
       pillar: "Product showcase",
       platforms: ["Instagram", "LinkedIn"],
+      placements: ["Instagram Feed", "LinkedIn"],
       count: 3,
       context: "",
     });
   const gen = () => {
     if (!form.product.trim()) return notify("Add a product or feature first");
+    if (!form.platforms.length) return notify("Select at least one platform");
+    if (!form.placements.length) return notify("Select at least one placement");
     let created = Array.from({ length: +form.count }, (_, i) =>
       mk(
         [
@@ -643,7 +657,7 @@ function Ideas({ data, setData, approve, refine, reject, notify }) {
         Date.now() + i,
       ),
     );
-    created = created.map((x) => ({ ...x, platforms: form.platforms }));
+    created = created.map((x) => ({ ...x, platforms: form.platforms, destinations: form.placements }));
     setData((d) => ({ ...d, ideas: [...created, ...d.ideas] }));
     notify(`${created.length} new ideas generated`);
   };
@@ -729,11 +743,9 @@ function Ideas({ data, setData, approve, refine, reject, notify }) {
                   <button
                     className={form.platforms.includes(x) ? "selected" : ""}
                     onClick={() =>
-                      setForm({
-                        ...form,
-                        platforms: form.platforms.includes(x)
-                          ? form.platforms.filter((y) => y !== x)
-                          : [...form.platforms, x],
+                      setForm((current) => {
+                        let removing = current.platforms.includes(x), platforms = removing ? current.platforms.filter((y) => y !== x) : [...current.platforms, x], placements = removing ? current.placements.filter((p) => !ideaPlacements[x]?.includes(p)) : [...new Set([...current.placements, firstPlacement(x)])];
+                        return { ...current, platforms, placements };
                       })
                     }
                   >
@@ -742,6 +754,12 @@ function Ideas({ data, setData, approve, refine, reject, notify }) {
                 ))}
               </div>
             </label>
+            <div className="wide placementSelector">
+              <div className="placementHeading"><span>Placements</span><small>Choose exactly where each idea is intended to appear.</small></div>
+              <div className="placementGroups">
+                {form.platforms.map((platform) => <section key={platform}><b>{platform}</b><div className="chips">{ideaPlacements[platform].map((placement) => <button key={placement} className={form.placements.includes(placement) ? "selected" : ""} onClick={() => setForm((current) => ({ ...current, placements: current.placements.includes(placement) ? current.placements.filter((p) => p !== placement) : [...current.placements, placement] }))}>{placement.replace(`${platform} `, "")}</button>)}</div></section>)}
+              </div>
+            </div>
             <label>
               Number of ideas
               <select
@@ -881,7 +899,7 @@ function Idea({ idea, approve, refine, reject, similar }) {
         </div>
       </div>
       <div className="tags">
-        {idea.platforms.map((x) => (
+        {(idea.destinations?.length ? idea.destinations : idea.platforms).map((x) => (
           <span>{x}</span>
         ))}
       </div>
