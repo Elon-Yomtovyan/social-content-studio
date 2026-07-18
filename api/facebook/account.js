@@ -1,8 +1,8 @@
 import { callbackUrl, configured, cookie, graphUrl, setCookie, unseal } from "../_facebook.js";
 
 export default async function handler(req, res) {
-  let action = String(req.query.action || "status"), ready = configured(), session = ready ? unseal(cookie(req, "scs_facebook")) : null;
-  if (action === "status" && req.method === "GET") return res.status(200).json({ configured: ready, connected: Boolean(session?.accessToken), account: session ? { id: session.id, name: session.name, picture: session.picture } : null, callbackUrl: callbackUrl(req) });
+  let action = String(req.query.action || "status"), ready = configured(), session = ready ? unseal(cookie(req, "scs_facebook")) : null, diagnostic = ready ? unseal(cookie(req, "scs_facebook_error")) : null;
+  if (action === "status" && req.method === "GET") return res.status(200).json({ configured: ready, connected: Boolean(session?.accessToken), sessionState: !ready ? "not_configured" : session?.accessToken ? "connected" : "missing", account: session ? { id: session.id, name: session.name, picture: session.picture } : null, lastError: diagnostic && Date.now() - diagnostic.at < 600000 ? { stage: diagnostic.stage, message: diagnostic.message } : null, callbackUrl: callbackUrl(req) });
   if (action === "disconnect" && req.method === "POST") { res.setHeader("Set-Cookie", setCookie("scs_facebook", "", 0)); return res.status(204).end(); }
   if (action === "test" && req.method === "GET") {
     if (!session?.accessToken) return res.status(401).json({ error: "Facebook is not connected" });
