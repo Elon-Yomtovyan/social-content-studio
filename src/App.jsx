@@ -984,16 +984,14 @@ function Ideas({ data, setData, approve, refine, reject, notify }) {
               refine={refine}
               reject={reject}
               similar={() => {
-                let n = {
-                  ...x,
-                  id: "i" + Date.now(),
-                  title: x.title + " — new angle",
-                  hook: "A fresh take: " + x.hook,
-                  status: "review",
-                  revisions: [],
+                let [n] = fallbackIdeas(form, 1, data.ideas);
+                n = {
+                  ...n,
+                  audienceInsight: x.audienceInsight || n.audienceInsight,
+                  message: `Explore the same audience insight as “${x.title}” through a different ${n.angle.toLowerCase()} execution. ${n.message}`,
                 };
                 setData((d) => ({ ...d, ideas: [n, ...d.ideas] }));
-                notify("Similar idea generated");
+                notify("A related idea with a different execution is ready");
               }}
             />
           ))}
@@ -5142,7 +5140,3 @@ function JobCenter({ jobs, openProduction, dismiss }) {
 }
 DistributionPanel = DistributionPanelV2;
 Calendar = CalendarV2;
-ImageComposer = ImageComposerBackend;
-Production = ProductionV2;
-Assets = AssetsV2;
-export default App;
