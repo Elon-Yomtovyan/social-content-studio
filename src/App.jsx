@@ -5140,3 +5140,7 @@ function JobCenter({ jobs, openProduction, dismiss }) {
 }
 DistributionPanel = DistributionPanelV2;
 Calendar = CalendarV2;
+ImageComposer = ImageComposerBackend;
+Production = ProductionV2;
+Assets = AssetsV2;
+export default App;
