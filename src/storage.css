@@ -1,0 +1,2 @@
+.sidefoot small{max-width:145px;line-height:1.25}.sidefoot:has(small:not(:empty)){align-items:flex-start}
+.connectionWarning{padding:10px 12px;border-radius:8px;background:#fff7e7;color:#806226;font-size:12px;line-height:1.45}.connectionWarning b{display:block;color:#624711;margin-bottom:2px}
