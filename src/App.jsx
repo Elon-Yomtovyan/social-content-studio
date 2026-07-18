@@ -14,6 +14,7 @@ import "./refinement.css";
 import "./workflow.css";
 import "./facebook.css";
 import "./placements.css";
+import "./storage.css";
 // Client persistence is unavailable during the server-rendering pass.
 // A no-op server shim keeps the initial render deterministic; the browser
 // immediately uses its native localStorage implementation during hydration.
@@ -182,18 +183,21 @@ const nav = [
   ["Templates", I.LayoutTemplate],
   ["Settings", I.Settings2],
 ];
+const mediaReferenceCache = typeof globalThis !== "undefined" ? (globalThis.__scsMediaKeys ||= new Map()) : new Map();
 function openWorkspaceDB() {
   return new Promise((resolve, reject) => {
-    let request = indexedDB.open("social-content-studio", 1);
-    request.onupgradeneeded = () =>
-      request.result.createObjectStore("workspace");
+    let request = indexedDB.open("social-content-studio", 2);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains("workspace")) request.result.createObjectStore("workspace");
+      if (!request.result.objectStoreNames.contains("media")) request.result.createObjectStore("media");
+    };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
 }
 async function readWorkspace() {
   let db = await openWorkspaceDB();
-  return new Promise((resolve, reject) => {
+  let saved = await new Promise((resolve, reject) => {
     let request = db
       .transaction("workspace")
       .objectStore("workspace")
@@ -201,21 +205,54 @@ async function readWorkspace() {
     request.onsuccess = () => resolve(request.result || null);
     request.onerror = () => reject(request.error);
   });
+  return saved ? hydrateMediaReferences(saved, db) : null;
 }
 let workspaceWriteQueue = Promise.resolve();
+function mediaKey(src) {
+  let cached = mediaReferenceCache.get(src);
+  if (cached) return cached;
+  let a = 2166136261, b = 5381;
+  for (let i = 0; i < src.length; i++) { let code = src.charCodeAt(i); a = Math.imul(a ^ code, 16777619); b = Math.imul(b, 33) ^ code; }
+  let key = `${(a >>> 0).toString(36)}-${(b >>> 0).toString(36)}-${src.length}`;
+  mediaReferenceCache.set(src, key);
+  return key;
+}
+function dataUrlBlob(src) {
+  let comma = src.indexOf(","), header = src.slice(0, comma), binary = atob(src.slice(comma + 1)), bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: header.match(/^data:([^;]+)/)?.[1] || "image/jpeg" });
+}
+async function externalizeMedia(value, blobs) {
+  if (typeof value === "string" && value.startsWith("data:image/")) {
+    let key = mediaKey(value); if (!blobs.has(key)) blobs.set(key, dataUrlBlob(value)); return `idb-media://${key}`;
+  }
+  if (Array.isArray(value)) return Promise.all(value.map((item) => externalizeMedia(item, blobs)));
+  if (value && typeof value === "object") { let output = {}; for (let [key, item] of Object.entries(value)) output[key] = await externalizeMedia(item, blobs); return output; }
+  return value;
+}
+function blobDataUrl(blob) { return new Promise((resolve, reject) => { let reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = () => reject(reader.error); reader.readAsDataURL(blob); }); }
+async function hydrateMediaReferences(value, db) {
+  if (typeof value === "string" && value.startsWith("idb-media://")) {
+    let key = value.slice(12), blob = await new Promise((resolve, reject) => { let request = db.transaction("media").objectStore("media").get(key); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
+    if (!blob) return "";
+    let src = await blobDataUrl(blob); mediaReferenceCache.set(src, key); return src;
+  }
+  if (Array.isArray(value)) return Promise.all(value.map((item) => hydrateMediaReferences(item, db)));
+  if (value && typeof value === "object") { let output = {}; for (let [key, item] of Object.entries(value)) output[key] = await hydrateMediaReferences(item, db); return output; }
+  return value;
+}
 function writeWorkspace(data) {
-  let snapshot = structuredClone(data);
   workspaceWriteQueue = workspaceWriteQueue
     .catch(() => {})
     .then(async () => {
-      let db = await openWorkspaceDB();
+      let db = await openWorkspaceDB(), blobs = new Map(), snapshot = await externalizeMedia(data, blobs);
       return new Promise((resolve, reject) => {
-        let request = db
-          .transaction("workspace", "readwrite")
-          .objectStore("workspace")
-          .put(snapshot, "data");
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
+        let transaction = db.transaction(["workspace", "media"], "readwrite"), media = transaction.objectStore("media");
+        blobs.forEach((blob, key) => media.put(blob, key));
+        transaction.objectStore("workspace").put(snapshot, "data");
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error || new Error("Workspace storage failed"));
+        transaction.onabort = () => reject(transaction.error || new Error("Workspace storage was interrupted"));
       });
     });
   return workspaceWriteQueue;
@@ -238,6 +275,7 @@ function App() {
       () => JSON.parse(localStorage.getItem("scs-data") || "null") || initial,
     ),
     [dbReady, setDbReady] = useState(false),
+    [storageState, setStorageState] = useState({ status: "opening", message: "Opening workspace…" }),
     [page, setPage] = useState(() =>
       typeof location !== "undefined" &&
       /(?:instagram|facebook)=/.test(location.search)
@@ -260,15 +298,19 @@ function App() {
       .then((saved) => {
         if (active && saved)
           setData((current) => mergeWorkspace(saved, current));
+        if (active) { setDbReady(true); setStorageState({ status: "saved", message: "All changes saved" }); }
       })
-      .catch(() => {})
-      .finally(() => active && setDbReady(true));
+      .catch((error) => { if (active) setStorageState({ status: "error", message: `Storage unavailable: ${error.message || "browser access failed"}` }); });
     return () => {
       active = false;
     };
   }, []);
   useEffect(() => {
-    if (dbReady) writeWorkspace(data).catch(() => {});
+    if (!dbReady) return;
+    setStorageState({ status: "saving", message: "Saving changes…" });
+    writeWorkspace(data)
+      .then(() => setStorageState({ status: "saved", message: "All changes saved" }))
+      .catch((error) => setStorageState({ status: "error", message: error?.name === "QuotaExceededError" ? "Storage is full — export or remove unused media" : `Save failed: ${error.message || "unknown error"}` }));
   }, [data, dbReady]);
   useEffect(
     () => localStorage.setItem("scs-jobs", JSON.stringify(jobs.slice(0, 20))),
@@ -354,7 +396,7 @@ function App() {
           <div>
             <b>Personal workspace</b>
             <small>
-              {dbReady ? "All changes saved" : "Opening workspace…"}
+              {storageState.message}
             </small>
           </div>
         </div>
@@ -1568,6 +1610,12 @@ function SettingsV2({ data, setData, notify }) {
                 </div>
                 {state.error && (
                   <p className="connectionError">{state.error}</p>
+                )}
+                {state.configured && state.sessionState === "missing_on_this_origin" && (
+                  <p className="connectionWarning"><b>No Instagram session exists on this site address.</b> Browser connections are hostname-specific. If you opened a different Vercel URL, return to the original address or connect once on this permanent address.</p>
+                )}
+                {state.sessionState === "unreadable" && (
+                  <p className="connectionError">The stored Instagram session can no longer be decrypted. Confirm that INSTAGRAM_SESSION_SECRET was not changed, then reconnect.</p>
                 )}
                 {state.configured ? (
                   <a
