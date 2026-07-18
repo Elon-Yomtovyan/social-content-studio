@@ -144,6 +144,147 @@ const mk = (a, i) => ({
   created: Date.now() - i * 9e6,
   revisions: [],
 });
+
+const strategicRecipes = [
+  {
+    role: "Decision guide",
+    angle: "Comparison",
+    format: "Carousel",
+    template: "Comparison",
+    title: (f) => `How to know when ${f.product} is the right choice`,
+    insight: (f) => `${f.audience} need decision criteria, not another list of features.`,
+    message: (f) => `Give ${f.audience} a practical way to recognize the situations where ${f.product} adds the most value.`,
+    hook: () => "Is this right for you?",
+    support: () => "Use these three decision signals.",
+    direction: (f) => `A clean decision tree built around three real use situations. Each slide answers one question and shows the relevant ${f.product} evidence beside it.`,
+    why: () => "Decision criteria earn saves and shares because they help the audience make a real choice without forcing a sales claim.",
+  },
+  {
+    role: "Objection reversal",
+    angle: "Myth versus fact",
+    format: "Carousel",
+    template: "Proof Split",
+    title: (f) => `The strongest objection to ${f.product}—answered visually`,
+    insight: (f) => `${f.audience} are likely holding back because one risk feels larger than the promised benefit.`,
+    message: (f) => `Address the most credible hesitation about ${f.product} with a transparent side-by-side demonstration.`,
+    hook: () => "The concern is valid.",
+    support: () => "Here is what actually changes.",
+    direction: (f) => `Open with the objection in the audience's words, then show a controlled before/after or process comparison using the same ${f.product} source material throughout.`,
+    why: () => "Acknowledging a real concern builds more trust than dismissing it, while the controlled comparison makes the answer believable.",
+  },
+  {
+    role: "Practical tutorial",
+    angle: "Tutorial",
+    format: "Carousel",
+    template: "How It Works",
+    title: (f) => `A repeatable ${f.product} workflow for ${f.audience}`,
+    insight: (f) => `${f.audience} value a usable process they can try today more than broad inspiration.`,
+    message: (f) => `Turn ${f.product} into a short, repeatable workflow with a clear input, decision point, and finished output.`,
+    hook: () => "Use this workflow.",
+    support: () => "Input → decision → finished result.",
+    direction: (f) => `A sequential four-beat carousel: raw input, the important choice, the transformation, and the finished ${f.product} outcome. Keep each slide focused on one action.`,
+    why: () => "A compact process demonstrates competence and gives the audience an immediate reason to save the post.",
+  },
+  {
+    role: "Proof experiment",
+    angle: "Quantified proof",
+    format: "Single image",
+    template: "Quantified Proof",
+    title: (f) => `Put one ${f.product} claim to a visible test`,
+    insight: (f) => `${f.audience} trust evidence they can inspect more than unsupported performance language.`,
+    message: (f) => `Choose one outcome connected to ${f.objective.toLowerCase()} and show the inputs, constraint, and observable result without invented numbers.`,
+    hook: () => "One input. One test.",
+    support: () => "Judge the result for yourself.",
+    direction: (f) => `A spacious proof board showing the original input, the test condition, and the ${f.product} output. Use labels only for evidence the user actually supplied.`,
+    why: () => "A transparent test creates credibility and conversation without relying on fabricated statistics or exaggerated claims.",
+  },
+  {
+    role: "Diagnostic",
+    angle: "Problem and solution",
+    format: "Carousel",
+    template: "Feature Breakdown",
+    title: (f) => `Three signs your current approach needs ${f.product}`,
+    insight: (f) => `${f.audience} often feel the symptoms of a problem before they know how to name it.`,
+    message: (f) => `Help the audience diagnose three observable friction points, then connect each one to a specific ${f.product} use.`,
+    hook: () => "Spot the bottleneck.",
+    support: () => "Three signals to look for.",
+    direction: (f) => `Three diagnostic cards with a concrete symptom, what it costs the workflow, and the corresponding ${f.product} action. Finish with a simple self-check.`,
+    why: () => "Diagnostic content creates recognition before presenting the solution, making the product feel relevant rather than interruptive.",
+  },
+  {
+    role: "Behind the decision",
+    angle: "Behind the scenes",
+    format: "Short video",
+    template: "Feature Breakdown",
+    title: (f) => `What we would check before using ${f.product}`,
+    insight: (f) => `${f.audience} want to see the judgment behind a polished result, not only the result itself.`,
+    message: (f) => `Reveal the quality criteria and tradeoffs that guide a strong ${f.product} outcome.`,
+    hook: () => "The result starts here.",
+    support: () => "Three choices that shape the outcome.",
+    direction: (f) => `A concise behind-the-scenes sequence that pauses on three decision points. Pair each choice with a visual example from the supplied ${f.product} materials.`,
+    why: () => "Showing expert judgment makes the content educational and differentiates the product through process rather than hype.",
+  },
+  {
+    role: "Use-case reveal",
+    angle: "Pain point to transformation",
+    format: "Single image",
+    template: "Before and After Reveal",
+    title: (f) => `${f.product} at the exact moment it becomes useful`,
+    insight: (f) => `${f.audience} understand value fastest when they recognize a specific moment from their own work.`,
+    message: (f) => `Show one high-friction moment and the concrete before/after change created by ${f.product}.`,
+    hook: () => "When the brief changes late.",
+    support: () => "Turn the constraint into the next version.",
+    direction: (f) => `A premium split composition: the recognizable constraint on the left and the resolved ${f.product} outcome on the right, connected by one restrained transition cue.`,
+    why: () => "A precise use moment is easier to identify with and remember than a broad product promise.",
+  },
+  {
+    role: "Contrarian insight",
+    angle: "Industry insight",
+    format: "Text-led post",
+    template: "Product Spotlight",
+    title: (f) => `The ${f.product} mistake that looks productive`,
+    insight: (f) => `${f.audience} may be optimizing visible output while overlooking the decision that determines quality.`,
+    message: (f) => `Challenge one common but counterproductive habit, then offer a more useful principle connected to ${f.product}.`,
+    hook: () => "More output is not the goal.",
+    support: () => "Better decisions are.",
+    direction: (f) => `A minimal editorial composition with one confident statement and a single supporting visual contrast drawn from the user's ${f.product} materials.`,
+    why: () => "A defensible contrarian point creates discussion while giving the audience a principle they can apply beyond this post.",
+  },
+];
+
+function fallbackIdeas(form, count, existingIdeas = []) {
+  const usedRoles = new Set(existingIdeas.slice(0, 12).map((idea) => idea.strategicRole).filter(Boolean));
+  const ordered = [
+    ...strategicRecipes.filter((recipe) => !usedRoles.has(recipe.role)),
+    ...strategicRecipes.filter((recipe) => usedRoles.has(recipe.role)),
+  ];
+  const start = (Math.abs(`${form.product}|${form.objective}|${form.pillar}`.split("").reduce((n, c) => n + c.charCodeAt(0), 0)) + existingIdeas.length) % ordered.length;
+  return Array.from({ length: count }, (_, index) => {
+    const recipe = ordered[(start + index) % ordered.length];
+    const f = { ...form, audience: form.audience || "the target audience" };
+    return {
+      id: `i${Date.now()}-${index}`,
+      title: recipe.title(f),
+      audienceInsight: recipe.insight(f),
+      message: recipe.message(f),
+      hook: recipe.hook(f),
+      imageHeadline: recipe.hook(f),
+      imageSupportingText: recipe.support(f),
+      angle: recipe.angle,
+      format: recipe.format,
+      template: recipe.template,
+      creativeDirection: recipe.direction(f),
+      platforms: form.platforms,
+      destinations: form.placements,
+      materials: ["Product image", "Brand assets", "Supporting copy"],
+      why: recipe.why(f),
+      strategicRole: recipe.role,
+      status: "review",
+      created: Date.now() + index,
+      revisions: [],
+    };
+  });
+}
 const initial = {
   ideas: seedIdeas.map(mk),
   production: seedIdeas
@@ -670,6 +811,7 @@ function Header({ page, setPage }) {
 function Ideas({ data, setData, approve, refine, reject, notify }) {
   const [open, setOpen] = useState(true),
     [rejected, setRejected] = useState(false),
+    [generating, setGenerating] = useState(false),
     [form, setForm] = useState({
       product: "AI product photography",
       objective: "Feature adoption",
@@ -682,26 +824,14 @@ function Ideas({ data, setData, approve, refine, reject, notify }) {
     });
   const gen = () => {
     if (!form.product.trim()) return notify("Add a product or feature first");
+    if (!form.audience.trim()) return notify("Add the target audience first");
     if (!form.platforms.length) return notify("Select at least one platform");
     if (!form.placements.length) return notify("Select at least one placement");
-    let created = Array.from({ length: +form.count }, (_, i) =>
-      mk(
-        [
-          `${form.product}: ${["the visual proof", "a faster way", "from input to impact", "the comparison", "the practical guide"][i] || "fresh direction"}`,
-          `${form.audience} do not need more content — they need better proof.`,
-          `Connect ${form.product} to ${form.objective.toLowerCase()} with a focused, credible story.`,
-          ["Pain point to transformation", "Feature breakdown", "Tutorial"][
-            i % 3
-          ],
-          i % 2 ? "Carousel" : "Single image",
-          ["Proof Split", "Feature Breakdown", "How It Works"][i % 3],
-        ],
-        Date.now() + i,
-      ),
-    );
-    created = created.map((x) => ({ ...x, platforms: form.platforms, destinations: form.placements }));
+    setGenerating(true);
+    const created = fallbackIdeas(form, Number(form.count), data.ideas);
     setData((d) => ({ ...d, ideas: [...created, ...d.ideas] }));
-    notify(`${created.length} new ideas generated`);
+    setGenerating(false);
+    notify(`${created.length} distinct strategic concepts are ready`);
   };
   return (
     <>
@@ -822,10 +952,10 @@ function Ideas({ data, setData, approve, refine, reject, notify }) {
               />
             </label>
             <div className="generateRow">
-              <span>No external API required for this prototype.</span>
-              <button className="primary" onClick={gen}>
-                <I.Sparkles size={17} />
-                Generate Ideas
+              <span>Private brainstorm: each concept uses a different insight, creative mechanic and strategic job.</span>
+              <button className="primary" onClick={gen} disabled={generating}>
+                {generating ? <I.LoaderCircle className="spin" size={17} /> : <I.Sparkles size={17} />}
+                {generating ? "Building distinct concepts…" : "Generate Ideas"}
               </button>
             </div>
           </div>
@@ -911,6 +1041,12 @@ function Idea({ idea, approve, refine, reject, similar }) {
         </button>
       </div>
       <h3>{idea.title}</h3>
+      {idea.audienceInsight && (
+        <div className="ideaInsight">
+          <small>AUDIENCE INSIGHT</small>
+          <p>{idea.audienceInsight}</p>
+        </div>
+      )}
       <div className="ideaMessage">
         <small>CORE CAMPAIGN MESSAGE</small>
         <p>{idea.message}</p>
@@ -926,10 +1062,16 @@ function Idea({ idea, approve, refine, reject, similar }) {
           <p>{support || "None — keep the image clean and product-led."}</p>
         </div>
       </div>
+      {idea.creativeDirection && (
+        <div className="creativeDirection">
+          <small>CREATIVE EXECUTION</small>
+          <p>{idea.creativeDirection}</p>
+        </div>
+      )}
       <div className="meta">
         <div>
-          <small>CONTENT ANGLE</small>
-          <b>{idea.angle}</b>
+          <small>{idea.strategicRole ? "STRATEGIC JOB" : "CONTENT ANGLE"}</small>
+          <b>{idea.strategicRole || idea.angle}</b>
         </div>
         <div>
           <small>FORMAT</small>
