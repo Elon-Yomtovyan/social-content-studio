@@ -292,13 +292,202 @@ const strategicRecipes = [
   },
 ];
 
+// Snapio-native concepts are built around real commerce production moments,
+// not generic social prompts with a product name inserted into them.
+const snapioRecipes = [
+  {
+    role: "Reshoot replacement",
+    categories: ["Product feature", "Promo"],
+    angle: "Problem and solution",
+    format: "Single image",
+    template: "Before and After Reveal",
+    title: () => "The reshoot you do not need",
+    insight: () => "Commerce teams lose momentum when a finished product photo no longer fits a changed campaign brief.",
+    message: () => "Snapio can keep the approved product intact while changing the scene around it for the new campaign direction.",
+    hook: () => "Brief changed?",
+    support: () => "Change the scene. Keep the product.",
+    direction: () => "Use one supplied packshot twice: original studio source on the left, polished campaign scene on the right. Keep the exact product silhouette, color and details unchanged. One restrained arrow; no decorative filler.",
+    caption: () => "Open with the familiar late-brief-change moment. Explain that the product remains the source of truth while the setting adapts. Close by asking which scene the audience would build next.",
+    why: () => "It connects a specific painful production moment to a visible, believable Snapio capability.",
+  },
+  {
+    role: "Source-to-campaign proof",
+    categories: ["Social proof", "Product feature"],
+    angle: "Range or kit reveal",
+    format: "Carousel",
+    template: "Kit Grid",
+    title: () => "One product photo, four campaign jobs",
+    insight: () => "Teams do not need another isolated image; they need a coherent set that can cover the campaign.",
+    message: () => "Show how the same supplied product can become a clean packshot, lifestyle scene, on-model visual and detail image without changing its identity.",
+    hook: () => "Start with one product.",
+    support: () => "Build the campaign around it.",
+    direction: () => "Cover: the user's original upload connected to a four-panel result grid. Following slides each give one output room to breathe: packshot, lifestyle, on-model and detail. Keep identical product color, construction and branded details throughout.",
+    caption: () => "Name the four distinct content jobs and explain why each exists in the buying journey. Avoid speed or volume claims; let the visual range provide the proof.",
+    why: () => "It demonstrates the value proposition with inspectable outputs instead of abstract promises.",
+  },
+  {
+    role: "Product fidelity principle",
+    categories: ["Education", "Social proof"],
+    angle: "Myth versus fact",
+    format: "Carousel",
+    template: "Proof Split",
+    title: () => "AI should change the scene—not the product",
+    insight: () => "Brand teams worry that AI imagery will quietly alter the details customers are actually buying.",
+    message: () => "Product fidelity is the constraint: silhouette, materials, color, hardware and proportions must remain true while the creative environment changes.",
+    hook: () => "The product is the constraint.",
+    support: () => "Everything around it can change.",
+    direction: () => "Create a clean annotated comparison using the supplied product: lock five identity details, then show two different scenes that preserve them. Use precise callouts only; never invent technical measurements.",
+    caption: () => "Explain the five product details that must remain consistent in generated commerce imagery. Invite the audience to add the detail they inspect first.",
+    why: () => "It directly addresses the biggest trust objection to AI product photography with a useful quality standard.",
+  },
+  {
+    role: "Input quality lesson",
+    categories: ["Education"],
+    angle: "Tutorial",
+    format: "Carousel",
+    template: "How It Works",
+    title: () => "What to upload for a stronger product result",
+    insight: () => "Better raw materials give creative teams more control over fidelity and usable angles.",
+    message: () => "Teach a practical source-image checklist: clear silhouette, honest color, visible detail and useful alternate angles.",
+    hook: () => "Before you generate, check this.",
+    support: () => "Four inputs that protect product truth.",
+    direction: () => "Four-slide checklist built from the user's own uploads. Each slide isolates one criterion with a good crop and a short label. Finish with a simple ready/not-ready summary.",
+    caption: () => "Turn the checklist into a saveable mini-guide. Explain what each input helps the AI preserve, without implying that every product requires the same number of photos.",
+    why: () => "It gives the audience an immediately useful workflow and positions Snapio as a practical production partner.",
+  },
+  {
+    role: "Catalog consistency",
+    categories: ["Product feature", "Social proof"],
+    angle: "Feature breakdown",
+    format: "Carousel",
+    template: "Kit Grid",
+    title: () => "Every SKU. One visual system.",
+    insight: () => "Catalog content feels expensive and fragmented when each product is framed, lit or styled differently.",
+    message: () => "Reusable templates and bulk generation can apply one approved visual direction across a product range while each SKU remains recognizable.",
+    hook: () => "Consistency is a system.",
+    support: () => "Not another round of manual fixes.",
+    direction: () => "Show a row of supplied products inside the same bright template system, then zoom into the shared spacing, camera angle and background treatment. Do not duplicate a single product to fake a catalog.",
+    caption: () => "Frame consistency as a production design problem. Explain which visual rules should stay fixed and which product details must remain unique.",
+    why: () => "It speaks to a costly operational problem and shows the role of templates and bulk workflows clearly.",
+  },
+  {
+    role: "Placement adaptation",
+    categories: ["Education", "Product feature"],
+    angle: "Comparison",
+    format: "Carousel",
+    template: "Comparison",
+    title: () => "One idea is not one crop",
+    insight: () => "A feed composition often fails when it is merely cropped into a story or vertical placement.",
+    message: () => "The same campaign idea should be recomposed for each placement, with product scale, whitespace and copy hierarchy adjusted intentionally.",
+    hook: () => "Do not just crop it.",
+    support: () => "Recompose for the placement.",
+    direction: () => "Place feed and story versions side by side using the exact same supplied product. Add safe-area guides and show how product scale and copy position change while the campaign system stays consistent.",
+    caption: () => "Explain the difference between resizing and recomposing. Give three placement checks: safe area, product prominence and readable copy.",
+    why: () => "It solves a common daily content problem and naturally demonstrates platform-aware generation.",
+  },
+  {
+    role: "On-model bridge",
+    categories: ["Product feature", "Social proof"],
+    angle: "Pain point to transformation",
+    format: "Single image",
+    template: "Product Spotlight",
+    title: () => "From packshot to worn context",
+    insight: () => "A clean product image explains what an item is; on-model context helps shoppers understand how it lives.",
+    message: () => "Use the supplied product as the anchor and generate an on-model scene that preserves its cut, color, texture and proportions.",
+    hook: () => "Show the product in context.",
+    support: () => "Without losing the product.",
+    direction: () => "A spacious two-panel composition: clean source packshot and premium on-model result. Match the supplied product exactly; use a warm neutral setting, natural posture and minimal copy.",
+    caption: () => "Explain the different jobs of packshot and on-model imagery. Keep the focus on context and product fidelity rather than replacing a physical shoot in every situation.",
+    why: () => "It makes the on-model feature concrete while addressing the audience's fidelity concern.",
+  },
+  {
+    role: "Creative iteration",
+    categories: ["Product feature", "Culture / BTS"],
+    angle: "Behind the scenes",
+    format: "Carousel",
+    template: "Feature Breakdown",
+    title: () => "The first result is a direction—not the finish line",
+    insight: () => "Creative teams need room to evaluate and refine, not a black-box image they must accept or discard.",
+    message: () => "Show the Snapio workflow as a creative loop: generate, review, mark the exact area, refine and approve.",
+    hook: () => "Generate. Direct. Refine.",
+    support: () => "The creative decision stays with you.",
+    direction: () => "A four-beat process using one real result: first generation, marked edit area, focused refinement and approved output. Use the same canvas and product throughout so the change is obvious.",
+    caption: () => "Describe the user's role as creative director. Focus on controlled iteration and preserving what already works.",
+    why: () => "It differentiates Snapio as a working creative environment instead of a one-shot generator.",
+  },
+  {
+    role: "Template reuse",
+    categories: ["Education", "Product feature"],
+    angle: "Tutorial",
+    format: "Carousel",
+    template: "How It Works",
+    title: () => "Turn a winning layout into a repeatable system",
+    insight: () => "Teams waste time rebuilding compositions that already have an approved hierarchy.",
+    message: () => "A reusable template should preserve layout, spacing, typography and brand rules while allowing the product and message to change.",
+    hook: () => "Keep the system. Change the campaign.",
+    support: () => "Reuse what is already approved.",
+    direction: () => "Show one approved bright Snapio layout, then three legitimate variations using different supplied products or messages. Lock the same grid, navy/cobalt hierarchy and rounded panels.",
+    caption: () => "Explain what belongs in the template and what should remain editable. End with a prompt to identify the layout the team repeats most often.",
+    why: () => "It translates templates into a clear operational benefit without relying on a vague productivity claim.",
+  },
+  {
+    role: "Workflow bottleneck",
+    categories: ["Promo", "Product feature"],
+    angle: "Problem and solution",
+    format: "Single image",
+    template: "Proof Split",
+    title: () => "The campaign is waiting on one missing image",
+    insight: () => "Launch plans often stall because the content set is almost complete but one placement or scene is still missing.",
+    message: () => "Snapio helps teams create the missing visual from approved raw materials while staying inside the existing campaign direction.",
+    hook: () => "One missing image should not hold the launch.",
+    support: () => "Build it from what is already approved.",
+    direction: () => "A clean campaign-board composition with one obvious empty slot, then the resolved board using the user's product. Keep every existing visual element consistent and highlight only the filled gap.",
+    caption: () => "Tell the story of the almost-complete campaign. Name the approved materials used and avoid promising a specific turnaround time.",
+    why: () => "It captures a recognizable high-intent moment where the product's value is immediate.",
+  },
+  {
+    role: "Production meme",
+    categories: ["Trend-jack"],
+    angle: "Meme",
+    format: "Meme",
+    template: "Comparison",
+    title: () => "final_final_THIS-ONE product image",
+    insight: () => "Creative and ecommerce teams recognize the chaos of endless versions and unclear approval states.",
+    message: () => "Make the joke about version chaos, then connect it lightly to one organized create-review-approve workflow.",
+    hook: () => "final_final_USE_THIS_ONE_v7",
+    support: () => "There has to be a better approval system.",
+    direction: () => "Use a restrained two-panel meme: chaotic file names on the left, one clearly approved Snapio result on the right. Keep it brand-clean and instantly legible; no unrelated stock meme imagery.",
+    caption: () => "Keep the caption conversational and short. Ask the audience for the worst version name they have received; mention the organized workflow only in the closing line.",
+    why: () => "It is native to the audience's daily reality and earns engagement without forcing a product pitch.",
+  },
+  {
+    role: "Behind quality review",
+    categories: ["Culture / BTS", "Education"],
+    angle: "Behind the scenes",
+    format: "Carousel",
+    template: "Feature Breakdown",
+    title: () => "What we inspect before an AI product image is approved",
+    insight: () => "Polished output is not enough if the product details or selling context are wrong.",
+    message: () => "Reveal a practical review order: product identity, physical plausibility, composition, brand fit and placement readiness.",
+    hook: () => "Looks good is not the final check.",
+    support: () => "Review the product before the polish.",
+    direction: () => "Five clean review cards applied to one supplied product result. Use subtle zooms and precise annotations; show a pass or revise decision without inventing automated scores.",
+    caption: () => "Walk through the review order and explain why product identity comes first. Invite teams to compare it with their own approval checklist.",
+    why: () => "It makes Snapio's quality philosophy useful, credible and transparent.",
+  },
+];
+
 function fallbackIdeas(form, count, existingIdeas = []) {
   const usedRoles = new Set(existingIdeas.slice(0, 12).map((idea) => idea.strategicRole).filter(Boolean));
+  const categoryMatches = snapioRecipes.filter((recipe) => recipe.categories.includes(form.pillar));
+  const categoryOthers = snapioRecipes.filter((recipe) => !recipe.categories.includes(form.pillar));
   const ordered = [
-    ...strategicRecipes.filter((recipe) => !usedRoles.has(recipe.role)),
-    ...strategicRecipes.filter((recipe) => usedRoles.has(recipe.role)),
+    ...categoryMatches.filter((recipe) => !usedRoles.has(recipe.role)),
+    ...categoryMatches.filter((recipe) => usedRoles.has(recipe.role)),
+    ...categoryOthers.filter((recipe) => !usedRoles.has(recipe.role)),
+    ...categoryOthers.filter((recipe) => usedRoles.has(recipe.role)),
   ];
-  const start = (Math.abs(`${form.product}|${form.objective}|${form.pillar}`.split("").reduce((n, c) => n + c.charCodeAt(0), 0)) + existingIdeas.length) % ordered.length;
+  const start = 0;
   return Array.from({ length: count }, (_, index) => {
     const recipe = ordered[(start + index) % ordered.length];
     const f = { ...form, audience: form.audience || "the target audience" };
@@ -311,7 +500,7 @@ function fallbackIdeas(form, count, existingIdeas = []) {
           : format,
       destinations = form.placements || [],
       pillarTag = form.pillar || "Product feature",
-      captionDirection = `Lead with “${recipe.hook(f)}”, explain ${recipe.message(f).charAt(0).toLowerCase() + recipe.message(f).slice(1)}, then close with the selected CTA. Keep the caption concise and platform-native. ${form.brand?.messagingRule || "Communicate one primary message."} ${form.brand?.claimsRestriction || "Do not invent claims or proof."}`,
+      captionDirection = `${recipe.caption?.(f) || `Lead with “${recipe.hook(f)}”, then explain the concept in one concise platform-native caption.`} ${form.brand?.messagingRule || "Communicate one primary message."} ${form.brand?.claimsRestriction || "Do not invent claims or proof."}`,
       hashtags = [
         `#${hashtagToken(form.product) || "ProductContent"}`,
         `#${hashtagToken(pillarTag) || "ContentMarketing"}`,
@@ -325,7 +514,18 @@ function fallbackIdeas(form, count, existingIdeas = []) {
             ? "Link in bio"
             : "None",
       brandStyle = form.brand?.visualGuidelines || "Clean light background, navy text, blue accents, generous whitespace, rounded panels and premium product photography.",
-      visualBrief = `${recipe.direction(f)} Use the ${recipe.template} template system. On-image headline: “${recipe.hook(f)}”. Supporting copy: “${recipe.support(f)}”. Style: ${brandStyle} ${form.brand?.defaultVisualStyle || "Keep the result modern, minimal and product-focused."}`;
+      formatExecution = format === "Carousel"
+        ? `Build exactly ${formatCount} connected slides: a sharp cover, a progressive middle and a resolved final beat.`
+        : format === "Story frame"
+          ? `Build exactly ${formatCount} connected vertical story frames with safe-area-aware copy.`
+          : format === "Single image"
+            ? "Resolve the whole concept in one immediately understandable composition."
+            : format === "Quote card"
+              ? "Use one short, defensible statement as the visual anchor with a restrained product cue."
+              : format === "Screenshot / UI mock"
+                ? "Make the supplied interface or workflow evidence the hero; annotate only what is necessary."
+                : "Keep the meme instantly legible, audience-specific and visually consistent with Snapio.",
+      visualBrief = `${formatExecution} ${recipe.direction(f)} Use the ${recipe.template} template system. On-image headline: “${recipe.hook(f)}”. Supporting copy: “${recipe.support(f)}”. Style: ${brandStyle} ${form.brand?.defaultVisualStyle || "Keep the result modern, minimal and product-focused."}${form.context?.trim() ? ` Campaign constraint supplied by the user: ${form.context.trim()}` : ""}`;
     return {
       id: `i${Date.now()}-${index}`,
       title: recipe.title(f),
