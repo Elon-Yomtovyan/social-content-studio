@@ -1,27 +1,300 @@
-import{createHash,timingSafeEqual}from'node:crypto';
-export const maxDuration=300;
-const SYSTEM_STYLE=`Create a polished square social composition in the exact approved reference style: bright warm-white or ivory canvas, deep navy typography, saturated cobalt-blue emphasis, generous negative space, rounded editorial image panels, thin pale borders and extremely subtle blue-gray depth. Use a clean two-column information hierarchy—concise message on the left, premium product proof or imagery on the right—or a crisp diagonal before/after split when appropriate. Typography is bold, friendly and rounded, with a heavy geometric headline, compact readable supporting copy and strong scale contrast. Product photography is warm, softly sunlit, commercially realistic and neutral; packshots are clean white, lifestyle scenes are cream and beige, and detail shots are precise. Keep the layout calm, spacious and immediately understandable.
+import { createHash, timingSafeEqual } from "node:crypto";
 
-Treat the user's uploaded product images as the only content source of truth. Preserve the exact product identity, silhouette, color, construction, texture, pattern, hardware and proportions. Never replace it with a similar product, borrow a product from a style reference, invent an alternate version or alter branded details. The approved style references control layout and art direction only—not subject matter, wording, logos or products.
+export const maxDuration = 300;
 
-Do not create dark studio scenes, navy or black full backgrounds, dramatic spotlights, smoky glows, neon, high-contrast gradients, sci-fi visuals, poster-like effects, floating objects, busy collages or generic ad templates. Do not use orange as a design accent unless it belongs to the user's exact product. Avoid excessive panels, copy, icons, arrows and labels. Render no more than 12 words total: one short headline and, only when necessary, one short supporting line. Typography must be crisp and correctly spelled.`;
-function allowedOrigin(req){let origin=req.headers.origin||'',own=`https://${req.headers.host}`;return origin===own||origin===process.env.ALLOWED_ORIGIN?origin:''}
-function authorized(req){let expected=process.env.GENERATION_ACCESS_KEY||'',cookie=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('scs_auth='))?.slice(9)||'',valid=expected?createHash('sha256').update(expected).digest('hex'):'';if(!cookie||!valid)return false;let a=Buffer.from(cookie),b=Buffer.from(valid);return a.length===b.length&&timingSafeEqual(a,b)}
-function storyRole(index,count){if(index===0)return'OPEN — establish the product and campaign promise';if(index===count-1)return'RESOLVE — complete the promise with a confident final product moment';let middle=['TENSION — show the customer problem or unmet need','DISCOVERY — reveal the product feature or mechanism that changes the situation','PROOF — show a credible detail, transformation or outcome','APPLICATION — show the same product naturally in use or context'];return middle[Math.min(index-1,middle.length-1)]}
-function layoutFor(index,count){if(index===0)return'Use an airy left-message/right-proof layout. The right side should be one large rounded frame subdivided into a clean packshot, lifestyle view and macro detail, with tiny white pill labels only when helpful.';if(index===count-1)return'Use a simplified resolution layout: a concise left message and one dominant warm product image on the right, or one clean proof card. Maximum two visual panels.';let middle=['Use a refined before/after composition: original input in a small rounded inset, a thin blue directional cue, and the improved product hero in a large warm neutral scene.','Use a clean 2×2 product kit: white packshot, lifestyle scene, on-model or in-use view, and macro detail. Keep every cell spacious and consistently rounded.','Use a proof-led layout: one oversized cobalt number or short proof phrase inside a pale rounded card, balanced by concise navy copy and at most three small line icons.','Use an editorial product story: concise left copy with two or three warm cream product scenes on the right, including one hero and one precise detail.'];return middle[Math.min(index-1,middle.length-1)]}
-function promptFor({idea,template,platform,brand,refinement,masked,materialNames,slideIndex,slideCount,coverReference,userSourceCount,styleReferenceCount}){let message=idea?.message||'Communicate a clear premium product benefit',headline=(idea?.imageHeadline||idea?.hook||idea?.title||'').trim(),support=(idea?.imageSupportingText||'').trim(),carousel=slideCount>1?`\n\nCAROUSEL STORY — SLIDE ${slideIndex+1} OF ${slideCount}\nNarrative role: ${storyRole(slideIndex,slideCount)}.\nThe complete story progresses: promise → tension → discovery → proof or application → resolution. Add exactly one new beat; do not restart or repeat the cover.\nLAYOUT FOR THIS BEAT: ${layoutFor(slideIndex,slideCount)}${coverReference?`\nReference image ${userSourceCount+1} is the approved cover slide. Match its canvas color, navy/cobalt palette, typography scale, border radius, line weight, lighting, spacing and photographic finish. Do not copy its exact composition.`:''}\nVISUAL CONTINUITY LOCK: every slide must look like the same designer, template family and campaign. Keep identical background family, type character, cobalt accent, rounding, spacing rhythm and warm photographic treatment.`:`\n\nLAYOUT: ${layoutFor(0,1)}`;return `${SYSTEM_STYLE}\n\nOUTPUT: ${platform||'Instagram square'}, polished 1:1 social post.\nCREATIVE INTENT: ${template||'Product Spotlight'}.${carousel}\nCORE CAMPAIGN MESSAGE: ${message}\nBRAND: ${brand?.name||'the supplied brand'}; voice: ${brand?.voice||'confident, concise and premium'}.\nUSER SOURCE IMAGES: References 1–${userSourceCount} are the user's actual product and raw materials. They are the only authority for subject matter and product appearance. The first user reference is the primary product anchor.${styleReferenceCount?`\nSTYLE-ONLY REFERENCES: The final ${styleReferenceCount} references are the user-approved visual contract. Copy their bright white composition, navy/cobalt hierarchy, rounded panels, warm neutral photography and whitespace. Never copy their rings, handbags, hands, models, wording, numbers, logos, arrows or brand marks.`:''}\nSOURCE MATERIALS: ${(materialNames||[]).join(', ')||'uploaded product references'}.\n\nEXACT ON-IMAGE COPY:\nHeadline: ${headline||'[NO HEADLINE]'}\nSupporting line: ${support||'[NONE]'}\n${slideCount>1&&slideIndex>0?'Normally render no words on this non-cover slide. Communicate the beat visually. If indispensable, use one 2–4 word phrase derived only from the approved message.':'Render the headline exactly as written and the supporting line only when supplied.'} Add no other words or invented copy.\n\nFINAL QUALITY CHECK: bright, spacious, premium and reference-matched; exact user product; no dark poster aesthetic; no visual clutter; no unrelated objects; no more than the specified copy.${refinement?`\n\nEDIT REQUEST: The first uploaded image is the current approved composition. Refine it—not a fresh redesign—using this direction: ${refinement}. Preserve everything not requested to change.${masked?' A transparent mask marks the edit area. Concentrate the change there and preserve everything outside it.':''}`:''}`}
-export default async function handler(req,res){
-  let origin=allowedOrigin(req);if(origin)res.setHeader('Access-Control-Allow-Origin',origin);
-  if(req.method==='OPTIONS'){if(!origin)return res.status(403).end();res.setHeader('Access-Control-Allow-Headers','Content-Type, Authorization');return res.status(204).end()}
-  if(req.method!=='POST')return res.status(405).json({error:'Method not allowed'});
-  if(!origin)return res.status(403).json({error:'Origin not allowed'});
-  if(!authorized(req))return res.status(401).json({error:'Invalid generation access key'});
-  if(!process.env.OPENAI_API_KEY||!process.env.GENERATION_ACCESS_KEY)return res.status(500).json({error:'Backend secrets are not configured'});
-  try{
-    const{image,images,mask,idea,template,platform,brand,refinement,materialNames,count:requestedCount,slideIndex:requestedSlideIndex,slideCount:requestedSlideCount}=req.body||{},sources=(Array.isArray(images)?images:[image]).filter(Boolean).slice(0,4),count=refinement?1:Math.max(1,Math.min(6,Number(requestedCount)||1)),campaignSlides=refinement?1:Math.max(count,Math.min(6,Number(requestedSlideCount)||count));
-    if(!sources.length||sources.some(x=>!x.startsWith('data:image/')||x.length>6_000_000))return res.status(400).json({error:'Add up to four valid product-reference images'});
-    if(mask&&(!refinement||!mask.startsWith('data:image/png;base64,')||mask.length>5_500_000))return res.status(400).json({error:'The marked edit area is invalid. Mark the area again and retry.'});
-    const createSlide=async(localIndex,coverReference=null)=>{let slideIndex=Number.isInteger(requestedSlideIndex)?Math.max(0,Math.min(campaignSlides-1,requestedSlideIndex)):localIndex,ordered=[...sources,...(coverReference?[coverReference]:[])],payload={model:'gpt-image-2',images:ordered.map(image_url=>({image_url})),prompt:promptFor({idea,template,platform,brand,refinement,masked:!!mask,materialNames,slideIndex,slideCount:campaignSlides,coverReference:!!coverReference,userSourceCount:sources.length,styleReferenceCount:0}),n:1,size:'1024x1024',quality:'high',output_format:'jpeg',output_compression:90};if(mask)payload.mask={image_url:mask};let response=await fetch('https://api.openai.com/v1/images/edits',{method:'POST',headers:{Authorization:`Bearer ${process.env.OPENAI_API_KEY}`,'Content-Type':'application/json'},body:JSON.stringify(payload)}),body=await response.json();if(!response.ok)throw new Error(body?.error?.message||`Slide ${slideIndex+1} generation failed`);let x=body.data?.[0];if(!x?.b64_json)throw new Error(`Slide ${slideIndex+1} returned no image`);return{slideIndex,src:`data:image/jpeg;base64,${x.b64_json}`,width:1024,height:1024,style:campaignSlides>1?`${storyRole(slideIndex,campaignSlides).split(' — ')[0]} · slide ${slideIndex+1}`:'Generated result',platform:platform||'Instagram'}};
-    let settled=[],coverReference=null,startAt=0;if(count>1&&!Number.isInteger(requestedSlideIndex)){let cover=await Promise.allSettled([createSlide(0)]),result=cover[0];settled.push({result,index:0});if(result.status==='fulfilled'){coverReference=result.value.src;startAt=1}else startAt=1}for(let start=startAt;start<count;start+=2){let indexes=Array.from({length:Math.min(2,count-start)},(_,i)=>start+i),batch=await Promise.allSettled(indexes.map(index=>createSlide(index,coverReference)));settled.push(...batch.map((result,i)=>({result,index:indexes[i]})))}let outputImages=settled.filter(x=>x.result.status==='fulfilled').map(x=>x.result.value).sort((a,b)=>a.slideIndex-b.slideIndex),failedSlides=settled.filter(x=>x.result.status==='rejected').map(x=>({slide:x.index+1,error:x.result.reason?.message||'Generation failed'}));if(!outputImages.length)throw new Error(failedSlides[0]?.error||'No requested images could be generated');return res.status(200).json({images:outputImages,requested:count,failedSlides,partial:failedSlides.length>0,storyDriven:count>1});
-  }catch(error){return res.status(500).json({error:error.message||'Generation failed'})}
+const SYSTEM_STYLE = `Create a polished social composition in the approved Snapio style: bright warm-white or ivory canvas, deep navy typography, saturated cobalt-blue emphasis, generous negative space, rounded editorial image panels, thin pale borders and extremely subtle blue-gray depth. Use a clean information hierarchy with one concise message and premium visual proof. Typography is bold, friendly and rounded, with strong scale contrast. Photography is warm, softly sunlit, commercially realistic and neutral. Keep the layout calm, spacious and immediately understandable.
+
+Do not create dark studio scenes, navy or black full backgrounds, dramatic spotlights, smoky glows, neon, high-contrast gradients, sci-fi visuals, poster-like effects, floating objects, busy collages or generic ad templates. Avoid excessive panels, copy, icons, arrows and labels. Render no more than 12 words total: one short headline and, only when necessary, one short supporting line. Typography must be crisp and correctly spelled.`;
+
+function allowedOrigin(req) {
+  let origin = req.headers.origin || "",
+    own = `https://${req.headers.host}`;
+  return origin === own || origin === process.env.ALLOWED_ORIGIN ? origin : "";
+}
+function authorized(req) {
+  let expected = process.env.GENERATION_ACCESS_KEY || "",
+    cookie = (req.headers.cookie || "")
+      .split(";")
+      .map((x) => x.trim())
+      .find((x) => x.startsWith("scs_auth="))
+      ?.slice(9) || "",
+    valid = expected
+      ? createHash("sha256").update(expected).digest("hex")
+      : "";
+  if (!cookie || !valid) return false;
+  let a = Buffer.from(cookie),
+    b = Buffer.from(valid);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+function storyRole(index, count) {
+  if (index === 0) return "OPEN — establish the campaign promise";
+  if (index === count - 1)
+    return "RESOLVE — complete the promise with a confident final beat";
+  let middle = [
+    "TENSION — show the customer problem or unmet need",
+    "DISCOVERY — reveal the feature or mechanism that changes the situation",
+    "PROOF — show a credible detail, transformation or outcome",
+    "APPLICATION — show the idea naturally in use or context",
+  ];
+  return middle[Math.min(index - 1, middle.length - 1)];
+}
+function layoutFor(index, count) {
+  if (index === 0)
+    return "Use an airy left-message/right-proof cover with one dominant rounded visual frame.";
+  if (index === count - 1)
+    return "Use a simplified resolution layout with one dominant visual and a confident closing beat.";
+  return [
+    "Use a refined problem-to-solution composition with a restrained cobalt transition cue.",
+    "Use a clean editorial grid with no more than four spacious, consistently rounded cells.",
+    "Use a proof-led layout with one visual fact and a precise supporting detail.",
+    "Use an editorial story layout with one hero scene and one close detail.",
+  ][Math.min(index - 1, 3)];
+}
+function promptFor({
+  idea,
+  template,
+  platform,
+  brand,
+  refinement,
+  masked,
+  materialNames,
+  slideIndex,
+  slideCount,
+  coverReference,
+  userSourceCount,
+}) {
+  let message = idea?.message || "Communicate one clear premium benefit",
+    headline = (idea?.imageHeadline || idea?.hook || idea?.title || "").trim(),
+    support = (idea?.imageSupportingText || "").trim(),
+    sourceRules = userSourceCount
+      ? `USER SOURCE IMAGES: References 1–${userSourceCount} are the user's actual product and raw materials. Treat them as the only authority for product identity. Preserve the exact silhouette, color, construction, texture, pattern, hardware, proportions and branded details. Never replace the product with a similar one or invent an alternate version.`
+      : `TEXT-ONLY CREATION: No product reference was supplied. Create an original, product-agnostic Snapio campaign visual from the approved concept. Use clean workflow graphics, abstract commerce objects, unbranded neutral products or restrained interface-style evidence as appropriate. Never invent a logo, customer quote, statistic, price, performance result, product capability or realistic screenshot of a feature that was not supplied.`,
+    carousel =
+      slideCount > 1
+        ? `CAROUSEL STORY — SLIDE ${slideIndex + 1} OF ${slideCount}
+Narrative role: ${storyRole(slideIndex, slideCount)}.
+The series progresses once through promise → tension → discovery → proof/application → resolution. This slide adds one new beat; it must not restart the story or repeat the cover.
+Layout: ${layoutFor(slideIndex, slideCount)}
+${
+  coverReference
+    ? `The final reference image is the approved cover. Match its canvas color, navy/cobalt palette, type scale, border radius, line weight, lighting, spacing and photographic finish. Preserve the campaign system but do not copy the cover composition.`
+    : "Define a precise campaign system that every later slide can follow."
+}
+CONTINUITY LOCK: identical warm-white background family, navy/cobalt palette, rounded geometry, typography character, spacing rhythm, lighting and image finish across the entire series.`
+        : `LAYOUT: ${layoutFor(0, 1)}`;
+  return `${SYSTEM_STYLE}
+
+OUTPUT: ${platform || "Instagram Feed"}.
+CREATIVE INTENT: ${template || "Product Spotlight"}.
+${carousel}
+CORE CAMPAIGN MESSAGE: ${message}
+BRAND: ${brand?.name || "Snapio AI"}; voice: ${brand?.voice || "clean, confident and premium"}.
+${sourceRules}
+SOURCE MATERIALS: ${(materialNames || []).join(", ") || "none — text-only creation"}.
+
+EXACT ON-IMAGE COPY:
+Headline: ${headline || "[NO HEADLINE]"}
+Supporting line: ${support || "[NONE]"}
+${
+  slideCount > 1 && slideIndex > 0
+    ? "Normally render no words on this non-cover slide. If indispensable, use one 2–4 word phrase derived only from the approved message."
+    : "Render the headline exactly as written and the supporting line only when supplied."
+} Add no other words.
+
+FINAL CHECK: bright, spacious, premium, internally consistent and immediately understandable; no dark poster aesthetic; no clutter; no unsupported claims.${
+    refinement
+      ? ` EDIT REQUEST: The first uploaded image is the current approved composition. Refine it—not a fresh redesign—using this direction: ${refinement}. Preserve everything not requested to change.${
+          masked
+            ? " A transparent mask marks the edit area. Concentrate the change there and preserve everything outside it."
+            : ""
+        }`
+      : ""
+  }`;
+}
+function validImage(value, max = 6_000_000) {
+  return (
+    typeof value === "string" &&
+    value.startsWith("data:image/") &&
+    value.length <= max
+  );
+}
+async function openAIImage({ payload, hasInputs, slideIndex }) {
+  let endpoint = hasInputs ? "edits" : "generations",
+    response = await fetch(`https://api.openai.com/v1/images/${endpoint}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    }),
+    body = await response.json();
+  if (!response.ok) {
+    let error = new Error(
+      body?.error?.message || `Slide ${slideIndex + 1} generation failed`,
+    );
+    error.status = /billing|quota|hard limit/i.test(error.message)
+      ? 402
+      : response.status === 429
+        ? 429
+        : 502;
+    throw error;
+  }
+  let image = body.data?.[0];
+  if (!image?.b64_json)
+    throw new Error(`Slide ${slideIndex + 1} returned no image`);
+  return image.b64_json;
+}
+
+export default async function handler(req, res) {
+  let origin = allowedOrigin(req);
+  if (origin) res.setHeader("Access-Control-Allow-Origin", origin);
+  if (req.method === "OPTIONS") {
+    if (!origin) return res.status(403).end();
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    return res.status(204).end();
+  }
+  if (req.method !== "POST")
+    return res.status(405).json({ error: "Method not allowed" });
+  if (!origin) return res.status(403).json({ error: "Origin not allowed" });
+  if (!authorized(req))
+    return res.status(401).json({ error: "Invalid generation access key" });
+  if (!process.env.OPENAI_API_KEY || !process.env.GENERATION_ACCESS_KEY)
+    return res.status(500).json({ error: "Backend secrets are not configured" });
+  try {
+    let {
+        image,
+        images,
+        coverImage,
+        mask,
+        idea,
+        template,
+        platform,
+        brand,
+        refinement,
+        materialNames,
+        count: requestedCount,
+        slideIndex: requestedSlideIndex,
+        slideCount: requestedSlideCount,
+      } = req.body || {},
+      sources = (Array.isArray(images) ? images : [image])
+        .filter(Boolean)
+        .slice(0, 4),
+      count = refinement
+        ? 1
+        : Math.max(1, Math.min(6, Number(requestedCount) || 1)),
+      campaignSlides = refinement
+        ? 1
+        : Math.max(
+            count,
+            Math.min(6, Number(requestedSlideCount) || count),
+          );
+    if (sources.some((source) => !validImage(source)))
+      return res
+        .status(400)
+        .json({ error: "Use up to four valid product-reference images" });
+    if (coverImage && !validImage(coverImage))
+      return res.status(400).json({ error: "The carousel cover reference is invalid" });
+    if (refinement && !sources.length)
+      return res
+        .status(400)
+        .json({ error: "A generated image is required for refinement" });
+    if (
+      mask &&
+      (!refinement ||
+        !mask.startsWith("data:image/png;base64,") ||
+        mask.length > 5_500_000)
+    )
+      return res.status(400).json({
+        error: "The marked edit area is invalid. Mark the area again and retry.",
+      });
+
+    const createSlide = async (localIndex, continuityCover = null) => {
+      let slideIndex = Number.isInteger(requestedSlideIndex)
+          ? Math.max(0, Math.min(campaignSlides - 1, requestedSlideIndex))
+          : localIndex,
+        cover = coverImage || continuityCover,
+        ordered = [...sources, ...(cover ? [cover] : [])],
+        payload = {
+          model: "gpt-image-2",
+          prompt: promptFor({
+            idea,
+            template,
+            platform,
+            brand,
+            refinement,
+            masked: !!mask,
+            materialNames,
+            slideIndex,
+            slideCount: campaignSlides,
+            coverReference: !!cover,
+            userSourceCount: sources.length,
+          }),
+          n: 1,
+          size: "1024x1024",
+          quality: "high",
+          output_format: "jpeg",
+          output_compression: 90,
+        };
+      if (ordered.length)
+        payload.images = ordered.map((image_url) => ({ image_url }));
+      if (mask) payload.mask = { image_url: mask };
+      let encoded = await openAIImage({
+        payload,
+        hasInputs: ordered.length > 0,
+        slideIndex,
+      });
+      return {
+        slideIndex,
+        src: `data:image/jpeg;base64,${encoded}`,
+        width: 1024,
+        height: 1024,
+        style:
+          campaignSlides > 1
+            ? `${storyRole(slideIndex, campaignSlides).split(" — ")[0]} · slide ${slideIndex + 1}`
+            : "Generated result",
+        platform: platform || "Instagram",
+      };
+    };
+
+    let settled = [],
+      continuityCover = coverImage || null;
+    for (let index = 0; index < count; index++) {
+      let actualIndex = Number.isInteger(requestedSlideIndex)
+        ? requestedSlideIndex
+        : index;
+      try {
+        let result = await createSlide(index, continuityCover);
+        if (!continuityCover && actualIndex === 0) continuityCover = result.src;
+        settled.push({ status: "fulfilled", value: result, index: actualIndex });
+      } catch (error) {
+        settled.push({ status: "rejected", reason: error, index: actualIndex });
+        if (error.status === 402 || error.status === 429) throw error;
+        if (actualIndex === 0 && count > 1) throw error;
+      }
+    }
+    let outputImages = settled
+        .filter((result) => result.status === "fulfilled")
+        .map((result) => result.value)
+        .sort((a, b) => a.slideIndex - b.slideIndex),
+      failedSlides = settled
+        .filter((result) => result.status === "rejected")
+        .map((result) => ({
+          slide: result.index + 1,
+          error: result.reason?.message || "Generation failed",
+        }));
+    if (!outputImages.length)
+      throw new Error(failedSlides[0]?.error || "No requested images could be generated");
+    return res.status(200).json({
+      images: outputImages,
+      requested: count,
+      failedSlides,
+      partial: failedSlides.length > 0,
+      storyDriven: campaignSlides > 1,
+    });
+  } catch (error) {
+    return res
+      .status(error.status || 500)
+      .json({ error: error.message || "Generation failed" });
+  }
 }
