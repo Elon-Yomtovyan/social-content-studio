@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as I from "lucide-react";
 import { unzip } from "fflate";
 import "./enhanced.css";
@@ -375,7 +375,9 @@ function blobDataUrl(blob) { return new Promise((resolve, reject) => { let reade
 async function hydrateMediaReferences(value, db) {
   if (typeof value === "string" && value.startsWith("idb-media://")) {
     let key = value.slice(12), blob = await new Promise((resolve, reject) => { let request = db.transaction("media").objectStore("media").get(key); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
-    if (!blob) return "";
+    // Preserve the reference when a media record is temporarily unavailable.
+    // Cloud and local indexes can repair it without losing asset metadata.
+    if (!blob) return value;
     let src = await blobDataUrl(blob); mediaReferenceCache.set(src, key); return src;
   }
   if (Array.isArray(value)) return Promise.all(value.map((item) => hydrateMediaReferences(item, db)));
@@ -398,22 +400,61 @@ function writeWorkspace(data) {
     });
   return workspaceWriteQueue;
 }
+function assetIdentity(asset, index = 0) {
+  return Array.isArray(asset)
+    ? `legacy:${asset[0]}`
+    : asset?.id || `${asset?.name || "asset"}:${asset?.created || index}`;
+}
+function mergeAssetLists(...lists) {
+  let merged = new Map();
+  lists.flat().filter(Boolean).forEach((asset, index) => {
+    let key = assetIdentity(asset, index), previous = merged.get(key);
+    if (!previous || (!previous?.src && asset?.src) || String(asset?.src || "").startsWith("https://"))
+      merged.set(key, previous && !Array.isArray(previous) && !Array.isArray(asset) ? { ...previous, ...asset } : asset);
+  });
+  return [...merged.values()];
+}
+function cachedAssetIndex() {
+  try { return JSON.parse(localStorage.getItem("scs-assets-index") || "[]"); }
+  catch { return []; }
+}
+const ASSET_CACHE = "social-content-studio-assets-v1";
+async function cacheAssetMedia(asset) {
+  if (!("caches" in globalThis) || !asset?.id || !asset?.src?.startsWith("data:image/")) return;
+  let response = await fetch(asset.src), cache = await caches.open(ASSET_CACHE);
+  await cache.put(`/__scs_asset/${encodeURIComponent(asset.id)}`, response);
+}
+async function hydrateCachedAssets(index) {
+  if (!("caches" in globalThis)) return index;
+  let cache = await caches.open(ASSET_CACHE);
+  return Promise.all(index.map(async (asset) => {
+    if (asset.src || !asset.id) return asset;
+    let response = await cache.match(`/__scs_asset/${encodeURIComponent(asset.id)}`);
+    return response ? { ...asset, src: await blobDataUrl(await response.blob()) } : asset;
+  }));
+}
+async function deleteCachedAsset(id) {
+  if ("caches" in globalThis)
+    await (await caches.open(ASSET_CACHE)).delete(`/__scs_asset/${encodeURIComponent(id)}`);
+}
 function mergeWorkspace(saved, current) {
-  let stored = saved?.assets || [],
-    recoverable = (current?.assets || []).filter(
-      (a) => !Array.isArray(a) && a?.src,
-    ),
-    keys = new Set(
-      stored.map((a) =>
-        Array.isArray(a) ? `legacy:${a[0]}` : a.id || `${a.name}:${a.src}`,
-      ),
-    ),
-    extras = recoverable.filter((a) => !keys.has(a.id || `${a.name}:${a.src}`));
-  return { ...saved, assets: [...stored, ...extras] };
+  let deleted = new Set([...(saved?.deletedAssetIds || []), ...(current?.deletedAssetIds || [])]);
+  return {
+    ...current,
+    ...saved,
+    deletedAssetIds: [...deleted],
+    assets: mergeAssetLists(saved?.assets || [], current?.assets || [], cachedAssetIndex())
+      .filter((asset, index) => !deleted.has(assetIdentity(asset, index))),
+  };
 }
 function App() {
   const [data, setData] = useState(
-      () => JSON.parse(localStorage.getItem("scs-data") || "null") || initial,
+      () => {
+        let cached;
+        try { cached = JSON.parse(localStorage.getItem("scs-data") || "null"); } catch { cached = null; }
+        let base = cached || initial;
+        return { ...base, assets: mergeAssetLists(base.assets || [], cachedAssetIndex()) };
+      },
     ),
     [dbReady, setDbReady] = useState(false),
     [storageState, setStorageState] = useState({ status: "opening", message: "Opening workspace…" }),
@@ -436,9 +477,10 @@ function App() {
   useEffect(() => {
     let active = true;
     readWorkspace()
-      .then((saved) => {
-        if (active && saved)
-          setData((current) => mergeWorkspace(saved, current));
+      .then(async (saved) => {
+        let cacheAssets = await hydrateCachedAssets(cachedAssetIndex());
+        if (active)
+          setData((current) => mergeWorkspace(saved || {}, { ...current, assets: mergeAssetLists(current.assets || [], cacheAssets) }));
         if (active) { setDbReady(true); setStorageState({ status: "saved", message: "All changes saved" }); }
       })
       .catch((error) => { if (active) setStorageState({ status: "error", message: `Storage unavailable: ${error.message || "browser access failed"}` }); });
@@ -453,6 +495,15 @@ function App() {
       .then(() => setStorageState({ status: "saved", message: "All changes saved" }))
       .catch((error) => setStorageState({ status: "error", message: error?.name === "QuotaExceededError" ? "Storage is full — export or remove unused media" : `Save failed: ${error.message || "unknown error"}` }));
   }, [data, dbReady]);
+  useEffect(() => {
+    // Keep a lightweight redundant index. Cloud URLs fit safely in
+    // localStorage; large browser-only data URLs remain in IndexedDB.
+    let index = (data.assets || [])
+      .filter((asset) => !Array.isArray(asset))
+      .map((asset) => ({ ...asset, src: /^https:\/\//.test(asset.src || "") ? asset.src : "" }));
+    try { localStorage.setItem("scs-assets-index", JSON.stringify(index)); } catch {}
+    Promise.allSettled((data.assets || []).filter((asset) => !Array.isArray(asset)).map(cacheAssetMedia));
+  }, [data.assets]);
   useEffect(
     () => localStorage.setItem("scs-jobs", JSON.stringify(jobs.slice(0, 20))),
     [jobs],
@@ -2818,18 +2869,23 @@ function AssetsV2({ data, setData }) {
       if (!file.type.startsWith("image/")) continue;
       let path = entry.path || file.name,
         folder = path.includes("/") ? path.split("/").slice(0, -1).pop() : "";
-      fresh.push({
+      let asset = {
         id: "a" + Date.now() + fresh.length,
         name: file.name.replace(/\.[^.]+$/, ""),
         type: assetType(path),
         tags: [fromZip ? "ZIP import" : "Uploaded", folder].filter(Boolean),
         src: await optimizedFileData(file, 1200, 0.78),
         created: Date.now(),
-      });
+      };
+      fresh.push(asset);
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
     if (fresh.length)
-      setData((d) => ({ ...d, assets: [...fresh, ...d.assets] }));
+      setData((d) => ({
+        ...d,
+        deletedAssetIds: (d.deletedAssetIds || []).filter((id) => !fresh.some((asset) => asset.id === id)),
+        assets: mergeAssetLists(fresh, d.assets || []),
+      }));
     return fresh.length;
   };
   const upload = async (files) => {
@@ -2856,12 +2912,15 @@ function AssetsV2({ data, setData }) {
       setImporting(false);
     }
   };
-  const remove = (id) =>
-    confirm("Delete this asset permanently?") &&
+  const remove = async (id) => {
+    if (!confirm("Delete this asset permanently?")) return;
+    await deleteCachedAsset(id);
     setData((d) => ({
       ...d,
+      deletedAssetIds: [...new Set([...(d.deletedAssetIds || []), id])],
       assets: d.assets.filter((a, i) => normalizeAsset(a, i).id !== id),
     }));
+  };
   return (
     <>
       <div className="toolbar">
