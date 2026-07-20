@@ -75,6 +75,45 @@ const ideaPlacements = {
   "YouTube Shorts": ["YouTube Shorts"],
 };
 const firstPlacement = (platform) => ideaPlacements[platform]?.[0] || platform;
+const ideaPillars = [
+  "Education",
+  "Social proof",
+  "Product feature",
+  "Culture / BTS",
+  "Promo",
+  "Trend-jack",
+];
+const ideaFormats = [
+  "Single image",
+  "Carousel",
+  "Story frame",
+  "Quote card",
+  "Screenshot / UI mock",
+  "Meme",
+];
+function hashtagToken(value) {
+  return String(value || "")
+    .replace(/[^a-zA-Z0-9 ]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 3)
+    .map((word) => word[0]?.toUpperCase() + word.slice(1).toLowerCase())
+    .join("");
+}
+function placementDimensions(placement) {
+  let specs = {
+    "Instagram Feed": "1080 × 1350 px · 4:5 portrait",
+    "Instagram Story": "1080 × 1920 px · 9:16 vertical",
+    "Instagram Reel": "1080 × 1920 px · 9:16 vertical",
+    "Facebook Feed": "1080 × 1350 px · 4:5 portrait",
+    "Facebook Story": "1080 × 1920 px · 9:16 vertical",
+    LinkedIn: "1200 × 1500 px · 4:5 portrait",
+    TikTok: "1080 × 1920 px · 9:16 vertical",
+    X: "1600 × 900 px · 16:9 landscape",
+    "YouTube Shorts": "1080 × 1920 px · 9:16 vertical",
+  };
+  return specs[placement] || "1080 × 1350 px · 4:5 portrait";
+}
 const runtimeId =
   typeof crypto !== "undefined" && crypto.randomUUID
     ? crypto.randomUUID()
@@ -262,20 +301,58 @@ function fallbackIdeas(form, count, existingIdeas = []) {
   return Array.from({ length: count }, (_, index) => {
     const recipe = ordered[(start + index) % ordered.length];
     const f = { ...form, audience: form.audience || "the target audience" };
+    const format = form.formatType || recipe.format,
+      formatCount = Number(form.formatCount) || (format === "Carousel" ? 4 : format === "Story frame" ? 3 : 1),
+      formatSpec = format === "Carousel"
+        ? `Carousel · ${formatCount} slides`
+        : format === "Story frame"
+          ? `Story sequence · ${formatCount} frames`
+          : format,
+      destinations = form.placements || [],
+      pillarTag = form.pillar || "Product feature",
+      captionDirection = `Lead with “${recipe.hook(f)}”, explain ${recipe.message(f).charAt(0).toLowerCase() + recipe.message(f).slice(1)}, then close with the selected CTA. Keep the caption concise and platform-native.`,
+      hashtags = [
+        `#${hashtagToken(form.product) || "ProductContent"}`,
+        `#${hashtagToken(pillarTag) || "ContentMarketing"}`,
+        "#VisualContent",
+      ],
+      cta = form.objective === "Engagement"
+        ? "Comment prompt"
+        : destinations.some((placement) => placement.includes("Story"))
+          ? "Swipe-up / link sticker"
+          : ["Conversion", "Lead generation", "Product launch"].includes(form.objective)
+            ? "Link in bio"
+            : "None",
+      brandStyle = form.brand?.visualGuidelines || "Clean light background, navy text, blue accents, generous whitespace, rounded panels and premium product photography.",
+      visualBrief = `${recipe.direction(f)} Use the ${recipe.template} template system. On-image headline: “${recipe.hook(f)}”. Supporting copy: “${recipe.support(f)}”. Style: ${brandStyle}`;
     return {
       id: `i${Date.now()}-${index}`,
       title: recipe.title(f),
+      finalConceptTitle: recipe.title(f),
       audienceInsight: recipe.insight(f),
       message: recipe.message(f),
       hook: recipe.hook(f),
       imageHeadline: recipe.hook(f),
       imageSupportingText: recipe.support(f),
       angle: recipe.angle,
-      format: recipe.format,
+      pillar: pillarTag,
+      pillarTag,
+      format,
+      formatSpec,
+      formatCount,
       template: recipe.template,
       creativeDirection: recipe.direction(f),
       platforms: form.platforms,
-      destinations: form.placements,
+      destinations,
+      platformPlacement: destinations,
+      visualBrief,
+      captionDirection,
+      hashtags,
+      cta,
+      dimensionSpecs: destinations.map((placement) => ({
+        placement,
+        spec: placementDimensions(placement),
+      })),
       materials: ["Product image", "Brand assets", "Supporting copy"],
       why: recipe.why(f),
       strategicRole: recipe.role,
@@ -544,6 +621,14 @@ function App() {
                 ideaId: id,
                 title: idea.title,
                 format: idea.format,
+                formatSpec: idea.formatSpec,
+                formatCount: idea.formatCount,
+                pillar: idea.pillarTag || idea.pillar,
+                visualBrief: idea.visualBrief,
+                captionDirection: idea.captionDirection,
+                hashtags: idea.hashtags,
+                cta: idea.cta,
+                dimensionSpecs: idea.dimensionSpecs,
                 platforms: idea.destinations?.length ? idea.destinations : idea.platforms,
                 destinations: idea.destinations?.length ? idea.destinations : idea.platforms,
                 campaign: "AI Growth",
@@ -867,7 +952,9 @@ function Ideas({ data, setData, approve, refine, reject, notify }) {
       product: "AI product photography",
       objective: "Feature adoption",
       audience: "Ecommerce marketing teams",
-      pillar: "Product showcase",
+      pillar: "Product feature",
+      formatType: "Carousel",
+      formatCount: 4,
       platforms: ["Instagram", "LinkedIn"],
       placements: ["Instagram Feed", "LinkedIn"],
       count: 3,
@@ -879,7 +966,7 @@ function Ideas({ data, setData, approve, refine, reject, notify }) {
     if (!form.platforms.length) return notify("Select at least one platform");
     if (!form.placements.length) return notify("Select at least one placement");
     setGenerating(true);
-    const created = fallbackIdeas(form, Number(form.count), data.ideas);
+    const created = fallbackIdeas({ ...form, brand: data.brand }, Number(form.count), data.ideas);
     setData((d) => ({ ...d, ideas: [...created, ...d.ideas] }));
     setGenerating(false);
     notify(`${created.length} distinct strategic concepts are ready`);
@@ -940,25 +1027,46 @@ function Ideas({ data, setData, approve, refine, reject, notify }) {
               />
             </label>
             <label>
-              Content pillar
+              Content pillar / category
               <select
                 value={form.pillar}
                 onChange={(e) => setForm({ ...form, pillar: e.target.value })}
               >
-                {[
-                  "Product showcase",
-                  "Before and after",
-                  "Tutorials",
-                  "Feature education",
-                  "Customer pain points",
-                  "Social proof",
-                  "Behind the scenes",
-                  "Industry insight",
-                ].map((x) => (
+                {ideaPillars.map((x) => (
                   <option>{x}</option>
                 ))}
               </select>
             </label>
+            <label>
+              Format type
+              <select
+                value={form.formatType}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    formatType: e.target.value,
+                    formatCount: e.target.value === "Carousel" ? 4 : e.target.value === "Story frame" ? 3 : 1,
+                  })
+                }
+              >
+                {ideaFormats.map((x) => (
+                  <option>{x}</option>
+                ))}
+              </select>
+            </label>
+            {(form.formatType === "Carousel" || form.formatType === "Story frame") && (
+              <label>
+                {form.formatType === "Carousel" ? "Slide count" : "Story frame count"}
+                <select
+                  value={form.formatCount}
+                  onChange={(e) => setForm({ ...form, formatCount: Number(e.target.value) })}
+                >
+                  {(form.formatType === "Carousel" ? [2, 3, 4, 5, 6, 7, 8, 9, 10] : [1, 2, 3, 4, 5, 6]).map((x) => (
+                    <option value={x}>{x}</option>
+                  ))}
+                </select>
+              </label>
+            )}
             <label className="wide">
               Preferred platforms
               <div className="chips">
@@ -1035,7 +1143,7 @@ function Ideas({ data, setData, approve, refine, reject, notify }) {
               refine={refine}
               reject={reject}
               similar={() => {
-                let [n] = fallbackIdeas(form, 1, data.ideas);
+                let [n] = fallbackIdeas({ ...form, brand: data.brand }, 1, data.ideas);
                 n = {
                   ...n,
                   audienceInsight: x.audienceInsight || n.audienceInsight,
@@ -1089,7 +1197,8 @@ function Idea({ idea, approve, refine, reject, similar }) {
           <I.MoreHorizontal />
         </button>
       </div>
-      <h3>{idea.title}</h3>
+      <small className="conceptLabel">FINAL CONCEPT TITLE</small>
+      <h3>{idea.finalConceptTitle || idea.title}</h3>
       {idea.audienceInsight && (
         <div className="ideaInsight">
           <small>AUDIENCE INSIGHT</small>
@@ -1113,10 +1222,45 @@ function Idea({ idea, approve, refine, reject, similar }) {
       </div>
       {idea.creativeDirection && (
         <div className="creativeDirection">
-          <small>CREATIVE EXECUTION</small>
-          <p>{idea.creativeDirection}</p>
+          <small>VISUAL BRIEF</small>
+          <p>{idea.visualBrief || idea.creativeDirection}</p>
         </div>
       )}
+      <div className="deliveryBrief">
+        <div>
+          <small>PLATFORM + PLACEMENT</small>
+          <b>{(idea.platformPlacement || idea.destinations || idea.platforms || []).join(" · ")}</b>
+        </div>
+        <div>
+          <small>PILLAR / CATEGORY</small>
+          <b>{idea.pillarTag || idea.pillar || idea.angle}</b>
+        </div>
+        <div>
+          <small>FORMAT SPEC</small>
+          <b>{idea.formatSpec || idea.format}</b>
+        </div>
+        <div className="briefWide">
+          <small>CAPTION COPY / DIRECTION</small>
+          <p>{idea.captionDirection || idea.message}</p>
+        </div>
+        <div>
+          <small>HASHTAGS / TAGS</small>
+          <p>{Array.isArray(idea.hashtags) ? idea.hashtags.join(" ") : idea.hashtags || "Set during distribution"}</p>
+        </div>
+        <div>
+          <small>CTA</small>
+          <b>{idea.cta || "None"}</b>
+        </div>
+        <div className="briefWide dimensionList">
+          <small>PLATFORM-SPECIFIC DIMENSIONS</small>
+          {(idea.dimensionSpecs?.length
+            ? idea.dimensionSpecs
+            : (idea.destinations || idea.platforms || []).map((placement) => ({ placement, spec: placementDimensions(placement) }))
+          ).map((item) => (
+            <span key={item.placement}><b>{item.placement}</b>{item.spec}</span>
+          ))}
+        </div>
+      </div>
       <div className="meta">
         <div>
           <small>{idea.strategicRole ? "STRATEGIC JOB" : "CONTENT ANGLE"}</small>
@@ -3484,7 +3628,9 @@ function ImageComposerBackend({
         ? "carousel"
         : "single",
     ),
-    [slideCount, setSlideCount] = useState(item.carouselImages?.length || 4),
+    [slideCount, setSlideCount] = useState(
+      item.carouselImages?.length || item.formatCount || idea?.formatCount || 4,
+    ),
     [needsAuth, setNeedsAuth] = useState(
       () =>
         typeof localStorage === "undefined" ||
