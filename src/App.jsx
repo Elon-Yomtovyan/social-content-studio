@@ -1010,6 +1010,49 @@ function applyFinishedJob(data, job) {
           generationError: "",
         };
       }
+      if (meta.kind === "generate-slide") {
+        let current = item.carouselImages?.length
+            ? item.carouselImages
+            : item.generatedVariants || [],
+          incoming = results[0],
+          index = Number.isInteger(meta.slideIndex)
+            ? meta.slideIndex
+            : incoming.slideIndex || 0,
+          byIndex = new Map(
+            current.map((slide, slideIndex) => [
+              Number.isInteger(slide.slideIndex)
+                ? slide.slideIndex
+                : slideIndex,
+              slide,
+            ]),
+          );
+        byIndex.set(index, { ...incoming, slideIndex: index });
+        let merged = [...byIndex.values()].sort(
+            (a, b) => (a.slideIndex || 0) - (b.slideIndex || 0),
+          ),
+          total = meta.total || merged.length,
+          complete = merged.length >= total;
+        return {
+          ...item,
+          generatedVariants: merged,
+          carouselImages: merged,
+          rendered: merged[0]?.src || item.rendered,
+          selectedVariant: index,
+          format: total > 1 ? "Carousel" : item.format,
+          status: "Ready for Review",
+          materials: 100,
+          generationWarning: complete
+            ? ""
+            : `${merged.length} of ${total} slides completed — retry to finish the series`,
+          generationProgress: {
+            completed: merged.length,
+            total,
+            state: complete ? "ready" : "partial",
+          },
+          generationFinishedAt: job.finishedAt,
+          generationError: "",
+        };
+      }
       let warning = job.result?.failedSlides?.length
         ? `${results.length} of ${meta.total || results.length} slides completed`
         : "";
@@ -2731,7 +2774,7 @@ function MaterialsPanel({
     update({
       materialItems: next,
       materials: next.length ? 100 : 0,
-      status: next.length ? "Ready to Create" : "Waiting for Materials",
+      status: "Ready to Create",
     });
   };
   const addAsset = (a) => {
@@ -2791,8 +2834,8 @@ function MaterialsPanel({
             <div>
               <h2>Source materials</h2>
               <p>
-                Drop every product photo, detail, lifestyle reference or brand
-                asset here. AI decides how to use them.
+                Optional: add product photos or brand references for fidelity,
+                or start from the approved concept with no images.
               </p>
             </div>
           </div>
@@ -2828,6 +2871,9 @@ function MaterialsPanel({
               : "Drop as many images as you want"}
           </b>
           <p>or click to browse · PNG, JPG, WEBP or ZIP</p>
+          {!images.length && (
+            <small>No source image required — text-only generation is ready.</small>
+          )}
         </label>
         {images.length > 0 && (
           <div className="sourceGrid">
@@ -3900,6 +3946,7 @@ function ImageComposerBackend({
   };
   const request = async ({
     sources,
+    coverImage,
     refinement,
     mask,
     count = 1,
@@ -3916,6 +3963,7 @@ function ImageComposerBackend({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             images: sources,
+            coverImage,
             mask,
             materialNames: materials.filter((m) => m.src).map((m) => m.name),
             idea: creativeIdea,
@@ -3955,14 +4003,14 @@ function ImageComposerBackend({
     }
   };
   const messageFor = (e) =>
-    e.name === "AbortError"
-      ? "Generation timed out after 4 minutes. Try again with fewer source images."
+    /billing hard limit|billing limit|quota/i.test(e.message || "")
+      ? "OpenAI billing limit reached. Increase the API project budget or add credits, then retry this job."
+      : e.name === "AbortError"
+      ? "This slide timed out. Retry the job; completed carousel slides have been preserved."
       : e.message === "Failed to fetch"
         ? "The secure AI backend is not connected yet."
         : e.message;
   const generate = async () => {
-    if (!images.length)
-      return setError("Upload at least one clear product image.");
     let count =
         mode === "carousel" ? Math.max(2, Math.min(6, +slideCount || 4)) : 1,
       jobId = `generation-${item.id}-${Date.now()}`;
@@ -3983,12 +4031,13 @@ function ImageComposerBackend({
             name: "Social Content Studio",
             voice: "clean, confident, premium",
           },
-          count,
+          count: 1,
+          slideIndex: 0,
           slideCount: count,
           carousel: count > 1,
         },
         meta = {
-          kind: "generate",
+          kind: "generate-slide",
           productionId: item.id,
           total: count,
           title: item.title,
@@ -4012,11 +4061,86 @@ function ImageComposerBackend({
       });
       notify("Creative job is running in the background");
       close?.();
-      let body = await request({ sources, count, slideCount: count }),
-        results = body.images,
-        warning = body.failedSlides?.length
-          ? `${results.length} of ${count} slides completed`
-          : "";
+      let results = [],
+        failedSlides = [],
+        coverImage = null;
+      for (let slideIndex = 0; slideIndex < count; slideIndex++) {
+        let slidePayload = {
+            ...payload,
+            coverImage,
+            count: 1,
+            slideIndex,
+            slideCount: count,
+          },
+          slideMeta = { ...meta, slideIndex };
+        update({
+          generationRequest: {
+            id: jobId,
+            owner: runtimeId,
+            payload: slidePayload,
+            meta: slideMeta,
+          },
+        });
+        try {
+          let body,
+            lastError;
+          for (let attempt = 0; attempt < 2; attempt++) {
+            try {
+              body = await request({
+                sources,
+                coverImage,
+                count: 1,
+                slideIndex,
+                slideCount: count,
+              });
+              break;
+            } catch (attemptError) {
+              lastError = attemptError;
+              if (/billing|quota|hard limit/i.test(attemptError.message || ""))
+                throw attemptError;
+            }
+          }
+          if (!body)
+            throw lastError || new Error(`Slide ${slideIndex + 1} failed`);
+          let slide = body.images?.[0];
+          if (!slide)
+            throw new Error(`Slide ${slideIndex + 1} returned no image`);
+          results.push(slide);
+          if (slideIndex === 0) coverImage = slide.src;
+          setVariants([...results]);
+          update({
+            generatedVariants: [...results],
+            carouselImages: [...results],
+            rendered: results[0].src,
+            generationProgress: {
+              completed: results.length,
+              total: count,
+              state: "running",
+            },
+          });
+          sendJob({
+            id: jobId,
+            status: "running",
+            completed: results.length,
+            total: count,
+          });
+        } catch (slideError) {
+          failedSlides.push({
+            slide: slideIndex + 1,
+            error: messageFor(slideError),
+          });
+          if (
+            slideIndex === 0 ||
+            /billing|quota|hard limit/i.test(slideError.message || "")
+          )
+            throw slideError;
+        }
+      }
+      if (!results.length)
+        throw new Error("No requested images could be generated");
+      let warning = failedSlides.length
+        ? `${results.length} of ${count} slides completed`
+        : "";
       setVariants(results);
       update({
         generatedVariants: results,
@@ -4027,7 +4151,7 @@ function ImageComposerBackend({
         status: "Ready for Review",
         materials: 100,
         generationWarning: warning,
-        failedSlides: body.failedSlides || [],
+        failedSlides,
         generationProgress: {
           completed: results.length,
           total: count,
@@ -4271,7 +4395,7 @@ function ImageComposerBackend({
           <button
             className="primary"
             onClick={generate}
-            disabled={busy || !images.length}
+            disabled={busy}
           >
             {busy ? (
               <>
