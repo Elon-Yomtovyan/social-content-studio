@@ -84,11 +84,12 @@ Narrative role: ${storyRole(slideIndex, slideCount)}.
 The series progresses once through promise → tension → discovery → proof/application → resolution. This slide adds one new beat; it must not restart the story or repeat the cover.
 APPROVED STORY BEAT: ${slidePlan?.beat || "Advance the narrative role above with one new idea."}
 APPROVED VISUAL DIRECTION: ${slidePlan?.visual || layoutFor(slideIndex, slideCount)}
-Follow this approved slide plan precisely. Do not substitute a generic product montage or repeat another slide's message.
+VISUAL STORYTELLING RULE: The scene, action, expression, product use or visible consequence must communicate this beat before any copy is read. The words support the image; they cannot be the entire idea. Show a relatable moment with cause and effect, not a product placed beside a headline.
+Follow this approved slide plan precisely. Do not substitute a generic product montage, a repeated packshot grid or another slide's message.
 Layout: ${layoutFor(slideIndex, slideCount)}
 ${
   coverReference
-    ? `The final reference image is the approved cover. Match its canvas color, navy/cobalt palette, type scale, border radius, line weight, lighting, spacing and photographic finish. Preserve the campaign system but do not copy the cover composition.`
+    ? `The final reference image is the immediately previous approved carousel slide. Continue its visual world: match the product identity, protagonist when present, environment, canvas color, navy/cobalt palette, type scale, border radius, line weight, lighting, spacing and photographic finish. Advance the action or consequence; do not duplicate its composition.`
     : "Define a precise campaign system that every later slide can follow."
 }
 CONTINUITY LOCK: identical warm-white background family, navy/cobalt palette, rounded geometry, typography character, spacing rhythm, lighting and image finish across the entire series.`
