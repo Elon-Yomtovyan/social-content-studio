@@ -3888,62 +3888,115 @@ function AreaMarker({ src, value, save, close }) {
   );
 }
 function carouselPlanRole(index, count) {
-  if (index === 0) return "Hook";
-  if (index === count - 1) return "Resolution";
-  return ["Problem", "Insight", "Proof", "Application"][
-    Math.min(index - 1, 3)
-  ];
+  let arcs = {
+    2: ["Situation", "Payoff"],
+    3: ["Situation", "Turning point", "Payoff"],
+    4: ["Situation", "Tension", "Turning point", "Payoff"],
+    5: ["Situation", "Tension", "Turning point", "Proof", "Payoff"],
+    6: ["Situation", "Tension", "Decision", "Transformation", "Proof", "Payoff"],
+  };
+  return (arcs[count] || arcs[4])[index] || "Story beat";
+}
+function carouselStoryProfile(idea = {}) {
+  let text = [
+      idea.title,
+      idea.message,
+      idea.hook,
+      idea.creativeDirection,
+      idea.visualBrief,
+      idea.pillar,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+  if (/channel|placement|format|feed|story|campaign/.test(text))
+    return {
+      situation: "The product is ready. The channel assets are not.",
+      tension: "The launch clock keeps moving while every placement needs a different creative.",
+      turn: "Start with the product source you already have.",
+      proof: "One product becomes a consistent set of channel-ready scenes.",
+      payoff: "One product. Every channel. Still unmistakably your brand.",
+      context: "an ecommerce marketer preparing a launch across several placements",
+    };
+  if (/context|lifestyle|scene|on.model|background/.test(text))
+    return {
+      situation: "The packshot is ready. The story is missing.",
+      tension: "A clean cutout explains what it is, not why someone would want it.",
+      turn: "Place the exact same product inside a believable customer moment.",
+      proof: "The product stays accurate while the setting creates relevance and desire.",
+      payoff: "Same product. Now it belongs in their world.",
+      context: "a creative lead turning a plain product photo into a believable customer scene",
+    };
+  if (/review|quality|check|identity|accur/.test(text))
+    return {
+      situation: "The image looks polished at first glance.",
+      tension: "Then someone notices the collar, texture or product shape is no longer right.",
+      turn: "Review product identity before judging the polish.",
+      proof: "Compare the source and result detail by detail before approving the creative.",
+      payoff: "A beautiful image only works when the product is still true.",
+      context: "a creative reviewer inspecting an AI product image before campaign approval",
+    };
+  if (/workflow|bulk|faster|scale|variation|input/.test(text))
+    return {
+      situation: "The brief changed again, but the campaign is due tomorrow.",
+      tension: "The team has one usable product image and a growing list of deliverables.",
+      turn: "Reuse the source instead of restarting the shoot.",
+      proof: "Build the packshot, lifestyle view and detail creative from the same product identity.",
+      payoff: "The campaign moves forward without rebuilding everything from zero.",
+      context: "a small ecommerce team racing to finish a campaign after a late brief change",
+    };
+  if (/proof|claim|trust|test|before|after/.test(text))
+    return {
+      situation: "You have seen the promise. Now show the proof.",
+      tension: "Another claim will not make it believable.",
+      turn: "Show the original input and let people inspect what changed.",
+      proof: "Keep the product constant and make the transformation visible.",
+      payoff: "Do not ask for trust. Make the change visible.",
+      context: "a skeptical ecommerce buyer comparing a raw product input with the finished result",
+    };
+  return {
+    situation: "The launch is close. The content is not ready.",
+    tension: "The team has fewer raw materials than the campaign needs.",
+    turn: "Start with what already exists and build outward from one clear message.",
+    proof: "Keep the product consistent while each image adds a useful new angle.",
+    payoff: "Start with less. Build a complete campaign.",
+    context: "an ecommerce team trying to finish a product launch with limited source material",
+  };
 }
 function buildCarouselPlan(count, idea = {}, existing = []) {
-  let hook = idea.imageHeadline || idea.hook || idea.title || "Start here",
-    message = idea.message || "Show the primary value clearly",
-    insight = idea.audienceInsight || idea.insight || message,
-    direction =
-      idea.creativeDirection ||
-      idea.visualBrief ||
-      "Use one focused premium visual that advances the story.",
-    support = idea.imageSupportingText || "",
-    cta =
-      idea.cta && idea.cta !== "None"
-        ? idea.cta
-        : "Complete the idea with a clear visual payoff.";
+  let story = carouselStoryProfile(idea),
+    roles = Array.from({ length: count }, (_, index) =>
+      carouselPlanRole(index, count),
+    ),
+    copyByRole = {
+      Situation: story.situation,
+      Tension: story.tension,
+      "Turning point": story.turn,
+      Decision: story.turn,
+      Transformation: story.proof,
+      Proof: story.proof,
+      Payoff: story.payoff,
+    };
   return Array.from({ length: count }, (_, index) => {
-    if (existing[index]) return { ...existing[index], index };
-    let role = carouselPlanRole(index, count),
-      defaults =
-        index === 0
-          ? {
-              beat: `Open with the central promise: ${message}`,
-              copy: hook,
-              visual: `Create a distinctive cover that makes the product or outcome the hero. ${direction}`,
-            }
-          : index === count - 1
-            ? {
-                beat: `Resolve the story by showing what the audience can now achieve. ${message}`,
-                copy: support || "See what becomes possible.",
-                visual: `Deliver the clearest finished outcome and a satisfying final beat. ${cta}`,
-              }
-            : index === 1
-              ? {
-                  beat: `Make the audience recognize the problem or constraint: ${insight}`,
-                  copy: "The problem",
-                  visual:
-                    "Show the friction before the solution. Keep it specific to the approved concept and visibly different from the cover.",
-                }
-              : index === 2
-                ? {
-                    beat: `Reveal the mechanism, choice or feature that changes the situation. ${direction}`,
-                    copy: "What changes",
-                    visual:
-                      "Show the transformation mechanism with one focused product detail, step or controlled comparison.",
-                  }
-                : {
-                    beat: `Add credible proof or a concrete application of the central message: ${message}`,
-                    copy: "The result",
-                    visual:
-                      "Show a new proof angle or use context. Do not repeat an earlier composition or introduce a second message.",
-                  };
-    return { index, role, ...defaults };
+    let role = roles[index],
+      previousRole = index ? roles[index - 1] : null,
+      nextRole = index < count - 1 ? roles[index + 1] : null,
+      copy = copyByRole[role],
+      beat =
+        role === "Situation"
+          ? `Put the viewer inside a familiar moment: ${story.situation} The protagonist is ${story.context}.`
+          : role === "Tension"
+            ? `Make the consequence of the opening moment visible: ${story.tension}`
+            : ["Turning point", "Decision"].includes(role)
+              ? `Show the decision that changes the direction of the story: ${story.turn}`
+              : ["Transformation", "Proof"].includes(role)
+                ? `Demonstrate the change instead of claiming it: ${story.proof}`
+                : `Resolve the opening tension with a clear emotional and visual payoff: ${story.payoff}`,
+      visual = `Show ${role.toLowerCase()} as a real moment involving ${story.context}. Continue from ${previousRole || "the audience's everyday reality"}${nextRole ? ` and create a visual reason to swipe toward ${nextRole.toLowerCase()}` : ". Close the story"}. The image must communicate the beat even with all text removed; use the same product, protagonist or environment when continuity is relevant. Do not make a product-and-headline poster or a generic montage.`;
+    let defaults = { index, role, beat, copy, visual };
+    return existing[index]?.customized
+      ? { ...defaults, ...existing[index], index, role }
+      : defaults;
   });
 }
 function ImageComposerBackend({
@@ -4179,7 +4232,7 @@ function ImageComposerBackend({
           if (!slide)
             throw new Error(`Slide ${slideIndex + 1} returned no image`);
           results.push(slide);
-          if (slideIndex === 0) coverImage = slide.src;
+          coverImage = slide.src;
           setVariants([...results]);
           update({
             generatedVariants: [...results],
@@ -4432,7 +4485,9 @@ function ImageComposerBackend({
     setCarouselPlan((current) => {
       let next = buildCarouselPlan(slideCount, creativeIdea, current).map(
         (slide, slideIndex) =>
-          slideIndex === index ? { ...slide, [field]: value } : slide,
+          slideIndex === index
+            ? { ...slide, [field]: value, customized: true }
+            : slide,
       );
       update({ carouselPlan: next, formatCount: slideCount });
       return next;
