@@ -3887,6 +3887,65 @@ function AreaMarker({ src, value, save, close }) {
     </div>
   );
 }
+function carouselPlanRole(index, count) {
+  if (index === 0) return "Hook";
+  if (index === count - 1) return "Resolution";
+  return ["Problem", "Insight", "Proof", "Application"][
+    Math.min(index - 1, 3)
+  ];
+}
+function buildCarouselPlan(count, idea = {}, existing = []) {
+  let hook = idea.imageHeadline || idea.hook || idea.title || "Start here",
+    message = idea.message || "Show the primary value clearly",
+    insight = idea.audienceInsight || idea.insight || message,
+    direction =
+      idea.creativeDirection ||
+      idea.visualBrief ||
+      "Use one focused premium visual that advances the story.",
+    support = idea.imageSupportingText || "",
+    cta =
+      idea.cta && idea.cta !== "None"
+        ? idea.cta
+        : "Complete the idea with a clear visual payoff.";
+  return Array.from({ length: count }, (_, index) => {
+    if (existing[index]) return { ...existing[index], index };
+    let role = carouselPlanRole(index, count),
+      defaults =
+        index === 0
+          ? {
+              beat: `Open with the central promise: ${message}`,
+              copy: hook,
+              visual: `Create a distinctive cover that makes the product or outcome the hero. ${direction}`,
+            }
+          : index === count - 1
+            ? {
+                beat: `Resolve the story by showing what the audience can now achieve. ${message}`,
+                copy: support || "See what becomes possible.",
+                visual: `Deliver the clearest finished outcome and a satisfying final beat. ${cta}`,
+              }
+            : index === 1
+              ? {
+                  beat: `Make the audience recognize the problem or constraint: ${insight}`,
+                  copy: "The problem",
+                  visual:
+                    "Show the friction before the solution. Keep it specific to the approved concept and visibly different from the cover.",
+                }
+              : index === 2
+                ? {
+                    beat: `Reveal the mechanism, choice or feature that changes the situation. ${direction}`,
+                    copy: "What changes",
+                    visual:
+                      "Show the transformation mechanism with one focused product detail, step or controlled comparison.",
+                  }
+                : {
+                    beat: `Add credible proof or a concrete application of the central message: ${message}`,
+                    copy: "The result",
+                    visual:
+                      "Show a new proof angle or use context. Do not repeat an earlier composition or introduce a second message.",
+                  };
+    return { index, role, ...defaults };
+  });
+}
 function ImageComposerBackend({
   item,
   idea,
@@ -3895,6 +3954,7 @@ function ImageComposerBackend({
   notify,
   close,
 }) {
+  let creativeIdea = { ...idea, ...(item.creativeBrief || {}) };
   const [busy, setBusy] = useState(false),
     [variants, setVariants] = useState(
       item.carouselImages || item.generatedVariants || [],
@@ -3910,6 +3970,13 @@ function ImageComposerBackend({
     [slideCount, setSlideCount] = useState(
       item.carouselImages?.length || item.formatCount || idea?.formatCount || 4,
     ),
+    [carouselPlan, setCarouselPlan] = useState(() =>
+      buildCarouselPlan(
+        item.carouselImages?.length || item.formatCount || idea?.formatCount || 4,
+        creativeIdea,
+        item.carouselPlan || [],
+      ),
+    ),
     [needsAuth, setNeedsAuth] = useState(
       () =>
         typeof localStorage === "undefined" ||
@@ -3919,7 +3986,6 @@ function ImageComposerBackend({
     [marking, setMarking] = useState(false),
     [maskRegion, setMaskRegion] = useState(null);
   let images = materials.filter((m) => m.src && !/logo/i.test(m.name)),
-    creativeIdea = { ...idea, ...(item.creativeBrief || {}) },
     selectedIndex = Number.isInteger(item.selectedVariant)
       ? item.selectedVariant
       : 0,
@@ -3952,6 +4018,7 @@ function ImageComposerBackend({
     count = 1,
     slideIndex,
     slideCount,
+    plan,
   }) => {
     let controller = new AbortController(),
       timeout = setTimeout(() => controller.abort(), 360000);
@@ -3977,6 +4044,7 @@ function ImageComposerBackend({
             count,
             slideIndex,
             slideCount,
+            carouselPlan: plan,
             carousel: (slideCount || count) > 1,
           }),
         }),
@@ -4013,7 +4081,9 @@ function ImageComposerBackend({
   const generate = async () => {
     let count =
         mode === "carousel" ? Math.max(2, Math.min(6, +slideCount || 4)) : 1,
-      jobId = `generation-${item.id}-${Date.now()}`;
+      jobId = `generation-${item.id}-${Date.now()}`,
+      approvedPlan =
+        count > 1 ? buildCarouselPlan(count, creativeIdea, carouselPlan) : [];
     setBusy(true);
     setError("");
     try {
@@ -4034,6 +4104,7 @@ function ImageComposerBackend({
           count: 1,
           slideIndex: 0,
           slideCount: count,
+          carouselPlan: approvedPlan,
           carousel: count > 1,
         },
         meta = {
@@ -4048,6 +4119,7 @@ function ImageComposerBackend({
         generationStartedAt: Date.now(),
         generationProgress: { completed: 0, total: count, state: "running" },
         generationError: "",
+        carouselPlan: approvedPlan,
         generationRequest: { id: jobId, owner: runtimeId, payload, meta },
       });
       sendJob({
@@ -4092,6 +4164,7 @@ function ImageComposerBackend({
                 count: 1,
                 slideIndex,
                 slideCount: count,
+                plan: approvedPlan,
               });
               break;
             } catch (attemptError) {
@@ -4347,6 +4420,24 @@ function ImageComposerBackend({
     "More whitespace",
     "Stronger product fidelity",
   ];
+  const changeSlideCount = (nextCount) => {
+    setSlideCount(nextCount);
+    setCarouselPlan((current) => {
+      let next = buildCarouselPlan(nextCount, creativeIdea, current);
+      update({ carouselPlan: next, formatCount: nextCount });
+      return next;
+    });
+  };
+  const editPlan = (index, field, value) => {
+    setCarouselPlan((current) => {
+      let next = buildCarouselPlan(slideCount, creativeIdea, current).map(
+        (slide, slideIndex) =>
+          slideIndex === index ? { ...slide, [field]: value } : slide,
+      );
+      update({ carouselPlan: next, formatCount: slideCount });
+      return next;
+    });
+  };
   return (
     <div className="creationInline">
       <section className="generationBar">
@@ -4382,7 +4473,7 @@ function ImageComposerBackend({
               Slides
               <select
                 value={slideCount}
-                onChange={(e) => setSlideCount(+e.target.value)}
+                onChange={(e) => changeSlideCount(+e.target.value)}
               >
                 {[2, 3, 4, 5, 6].map((n) => (
                   <option key={n} value={n}>
@@ -4423,6 +4514,73 @@ function ImageComposerBackend({
         )}
         {error && <p className="renderError">{error}</p>}
       </section>
+      {mode === "carousel" && (
+        <section className="carouselStoryboard">
+          <div className="storyboardHeading">
+            <div>
+              <span className="sectionIcon">
+                <I.ListTree />
+              </span>
+              <div>
+                <h2>Carousel story plan</h2>
+                <p>
+                  Edit the narrative and prompt for every slide before
+                  generation. These instructions are sent directly to the AI.
+                </p>
+              </div>
+            </div>
+            <span className="storyFlow">
+              {buildCarouselPlan(slideCount, creativeIdea, carouselPlan)
+                .map((slide) => slide.role)
+                .join(" → ")}
+            </span>
+          </div>
+          <div className="storyboardSlides">
+            {buildCarouselPlan(slideCount, creativeIdea, carouselPlan).map(
+              (slide, index) => (
+                <article key={index}>
+                  <header>
+                    <span>Slide {index + 1}</span>
+                    <b>
+                      {slide.role || carouselPlanRole(index, slideCount)}
+                    </b>
+                  </header>
+                  <label>
+                    Story beat
+                    <textarea
+                      value={slide.beat}
+                      onChange={(event) =>
+                        editPlan(index, "beat", event.target.value)
+                      }
+                      placeholder="What new part of the story does this slide communicate?"
+                    />
+                  </label>
+                  <label>
+                    Exact on-image copy
+                    <input
+                      value={slide.copy}
+                      onChange={(event) =>
+                        editPlan(index, "copy", event.target.value)
+                      }
+                      placeholder="Keep it short, or leave blank for no text"
+                    />
+                  </label>
+                  <label>
+                    Visual direction / image prompt
+                    <textarea
+                      value={slide.visual}
+                      onChange={(event) =>
+                        editPlan(index, "visual", event.target.value)
+                      }
+                      placeholder="Composition, subject, product angle and visual evidence"
+                    />
+                  </label>
+                </article>
+              ),
+            )}
+          </div>
+        </section>
+      )}
       {variants.length > 0 && (
         <section className="variantArea carouselResults">
           <div className="variantTitle">
