@@ -8,6 +8,7 @@ import "./backend.css";
 import "./security.css";
 import "./session.css";
 import "./calendar.css";
+import "./calendar-actions.css";
 import "./settings.css";
 import "./jobs.css";
 import "./refinement.css";
@@ -310,7 +311,7 @@ function fallbackIdeas(form, count, existingIdeas = []) {
           : format,
       destinations = form.placements || [],
       pillarTag = form.pillar || "Product feature",
-      captionDirection = `Lead with “${recipe.hook(f)}”, explain ${recipe.message(f).charAt(0).toLowerCase() + recipe.message(f).slice(1)}, then close with the selected CTA. Keep the caption concise and platform-native.`,
+      captionDirection = `Lead with “${recipe.hook(f)}”, explain ${recipe.message(f).charAt(0).toLowerCase() + recipe.message(f).slice(1)}, then close with the selected CTA. Keep the caption concise and platform-native. ${form.brand?.messagingRule || "Communicate one primary message."} ${form.brand?.claimsRestriction || "Do not invent claims or proof."}`,
       hashtags = [
         `#${hashtagToken(form.product) || "ProductContent"}`,
         `#${hashtagToken(pillarTag) || "ContentMarketing"}`,
@@ -324,7 +325,7 @@ function fallbackIdeas(form, count, existingIdeas = []) {
             ? "Link in bio"
             : "None",
       brandStyle = form.brand?.visualGuidelines || "Clean light background, navy text, blue accents, generous whitespace, rounded panels and premium product photography.",
-      visualBrief = `${recipe.direction(f)} Use the ${recipe.template} template system. On-image headline: “${recipe.hook(f)}”. Supporting copy: “${recipe.support(f)}”. Style: ${brandStyle}`;
+      visualBrief = `${recipe.direction(f)} Use the ${recipe.template} template system. On-image headline: “${recipe.hook(f)}”. Supporting copy: “${recipe.support(f)}”. Style: ${brandStyle} ${form.brand?.defaultVisualStyle || "Keep the result modern, minimal and product-focused."}`;
     return {
       id: `i${Date.now()}-${index}`,
       title: recipe.title(f),
@@ -362,6 +363,22 @@ function fallbackIdeas(form, count, existingIdeas = []) {
     };
   });
 }
+const defaultBrand = {
+  name: "Snapio AI",
+  description: "AI visual-content platform for modern commerce teams.",
+  voice: "Confident, clear, practical and optimistic.",
+  cta: "Create your first visual",
+  avoid: "Revolutionary, game-changing, effortless",
+  targetAudiences: "Ecommerce brands, online retailers, creative teams, marketing teams, agencies and product photographers.",
+  valueProposition: "Create more high-quality product content from fewer raw materials.",
+  productsFeatures: "AI product photography, packshots, background replacement, lifestyle scenes, on-model generation, ghost fit, bulk generation, product variations, canvas editor and reusable templates.",
+  contentPillars: "Product transformations, feature education, tutorials, customer pain points, visual proof, workflow efficiency, creative inspiration and product announcements.",
+  visualGuidelines: "Clean white or very light backgrounds, navy text, Snapio blue accents, Fredoka headings, generous whitespace, rounded image panels and premium product photography.",
+  messagingRule: "Every post should communicate one primary message and use minimal on-image copy.",
+  claimsRestriction: "Never invent statistics, customer quotes, prices, performance results or product capabilities.",
+  defaultVisualStyle: "Modern, premium, AI-native, minimal, friendly, clean and content-focused. Avoid dark poster designs, excessive gradients, decorative clutter and dense text.",
+  preferredPlatforms: ["Instagram", "LinkedIn", "Facebook"],
+};
 const initial = {
   ideas: seedIdeas.map(mk),
   production: seedIdeas
@@ -383,13 +400,7 @@ const initial = {
     ["Blue brand mark", "Logo"],
     ["Creator workspace", "Lifestyle image"],
   ],
-  brand: {
-    name: "Luma Studio",
-    description: "AI visual-content platform for modern commerce teams.",
-    voice: "Confident, clear, practical and optimistic.",
-    cta: "Create your first visual",
-    avoid: "Revolutionary, game-changing, effortless",
-  },
+  brand: defaultBrand,
   rejected: [],
 };
 const nav = [
@@ -1696,28 +1707,37 @@ function Templates() {
   );
 }
 function Brand({ data, setData, notify }) {
-  const [b, setB] = useState(data.brand);
+  const [b, setB] = useState({ ...defaultBrand, ...(data.brand || {}) });
+  const fields = [
+    ["name", "Brand name", false],
+    ["description", "Brand description", true],
+    ["targetAudiences", "Target audiences", true],
+    ["valueProposition", "Primary value proposition", true],
+    ["productsFeatures", "Products and features", true],
+    ["contentPillars", "Content pillars", true],
+    ["voice", "Brand voice", true],
+    ["visualGuidelines", "Visual guidelines", true],
+    ["messagingRule", "Messaging rule", true],
+    ["claimsRestriction", "Claims restriction", true],
+    ["defaultVisualStyle", "Default visual style", true],
+    ["cta", "Default CTA", false],
+    ["avoid", "Words to avoid", false],
+  ];
   return (
     <section className="settings">
       <h2>Brand foundation</h2>
       <p>Used to keep every generated idea and caption consistent.</p>
-      {[
-        ["name", "Brand name"],
-        ["description", "Brand description"],
-        ["voice", "Brand voice"],
-        ["cta", "Default CTA"],
-        ["avoid", "Words to avoid"],
-      ].map(([k, n]) => (
-        <label>
+      {fields.map(([k, n, multiline]) => (
+        <label key={k}>
           {n}
-          {k === "description" || k === "voice" ? (
+          {multiline ? (
             <textarea
-              value={b[k]}
+              value={b[k] || ""}
               onChange={(e) => setB({ ...b, [k]: e.target.value })}
             />
           ) : (
             <input
-              value={b[k]}
+              value={b[k] || ""}
               onChange={(e) => setB({ ...b, [k]: e.target.value })}
             />
           )}
@@ -1727,14 +1747,27 @@ function Brand({ data, setData, notify }) {
         Preferred platforms
         <div className="chips">
           {platforms.map((x) => (
-            <button>{x}</button>
+            <button
+              key={x}
+              className={(b.preferredPlatforms || []).includes(x) ? "selected" : ""}
+              onClick={() =>
+                setB((current) => ({
+                  ...current,
+                  preferredPlatforms: (current.preferredPlatforms || []).includes(x)
+                    ? current.preferredPlatforms.filter((platform) => platform !== x)
+                    : [...(current.preferredPlatforms || []), x],
+                }))
+              }
+            >
+              {x}
+            </button>
           ))}
         </div>
       </label>
       <button
         className="primary"
         onClick={() => {
-          setData({ ...data, brand: b });
+          setData((current) => ({ ...current, brand: b }));
           notify("Brand settings saved");
         }}
       >
@@ -4802,6 +4835,14 @@ function CalendarV2({ data, setData, notify }) {
     setSelected(null);
     notify("Removed from calendar — content remains in Production");
   };
+  const deleteUnscheduled = (item) => {
+    if (!confirm(`Delete “${item.title}” from Production? The approved idea and Asset Library files will be preserved.`)) return;
+    setData((current) => ({
+      ...current,
+      production: current.production.filter((productionItem) => productionItem.id !== item.id),
+    }));
+    notify("Unscheduled content deleted — idea and assets preserved");
+  };
   return (
     <div className="calendarV2">
       <div className="calendarToolbar">
@@ -4914,6 +4955,18 @@ function CalendarV2({ data, setData, notify }) {
                   {p.format} · {p.platforms?.join(", ")}
                 </small>
                 <span>{p.status}</span>
+                <button
+                  className="deleteUnscheduled"
+                  title="Delete unscheduled content"
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteUnscheduled(p);
+                  }}
+                >
+                  <I.Trash2 size={13} />
+                  Delete
+                </button>
               </article>
             ))}
             {!unscheduled.length && (
