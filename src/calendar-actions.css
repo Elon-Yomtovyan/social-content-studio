@@ -1,0 +1,24 @@
+.unscheduled article {
+  position: relative;
+}
+
+.unscheduled article > .deleteUnscheduled {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: #fff1f1;
+  color: #b53838;
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 8px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.unscheduled article > .deleteUnscheduled:hover {
+  background: #ffe4e4;
+}
