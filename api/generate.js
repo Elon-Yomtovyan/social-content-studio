@@ -62,10 +62,18 @@ function promptFor({
   slideCount,
   coverReference,
   userSourceCount,
+  carouselPlan,
 }) {
-  let message = idea?.message || "Communicate one clear premium benefit",
-    headline = (idea?.imageHeadline || idea?.hook || idea?.title || "").trim(),
-    support = (idea?.imageSupportingText || "").trim(),
+  let slidePlan = carouselPlan?.[slideIndex] || null,
+    message = idea?.message || "Communicate one clear premium benefit",
+    headline = (
+      slidePlan?.copy ??
+      idea?.imageHeadline ??
+      idea?.hook ??
+      idea?.title ??
+      ""
+    ).trim(),
+    support = slidePlan ? "" : (idea?.imageSupportingText || "").trim(),
     sourceRules = userSourceCount
       ? `USER SOURCE IMAGES: References 1–${userSourceCount} are the user's actual product and raw materials. Treat them as the only authority for product identity. Preserve the exact silhouette, color, construction, texture, pattern, hardware, proportions and branded details. Never replace the product with a similar one or invent an alternate version.`
       : `TEXT-ONLY CREATION: No product reference was supplied. Create an original, product-agnostic Snapio campaign visual from the approved concept. Use clean workflow graphics, abstract commerce objects, unbranded neutral products or restrained interface-style evidence as appropriate. Never invent a logo, customer quote, statistic, price, performance result, product capability or realistic screenshot of a feature that was not supplied.`,
@@ -74,6 +82,9 @@ function promptFor({
         ? `CAROUSEL STORY — SLIDE ${slideIndex + 1} OF ${slideCount}
 Narrative role: ${storyRole(slideIndex, slideCount)}.
 The series progresses once through promise → tension → discovery → proof/application → resolution. This slide adds one new beat; it must not restart the story or repeat the cover.
+APPROVED STORY BEAT: ${slidePlan?.beat || "Advance the narrative role above with one new idea."}
+APPROVED VISUAL DIRECTION: ${slidePlan?.visual || layoutFor(slideIndex, slideCount)}
+Follow this approved slide plan precisely. Do not substitute a generic product montage or repeat another slide's message.
 Layout: ${layoutFor(slideIndex, slideCount)}
 ${
   coverReference
@@ -95,11 +106,7 @@ SOURCE MATERIALS: ${(materialNames || []).join(", ") || "none — text-only crea
 EXACT ON-IMAGE COPY:
 Headline: ${headline || "[NO HEADLINE]"}
 Supporting line: ${support || "[NONE]"}
-${
-  slideCount > 1 && slideIndex > 0
-    ? "Normally render no words on this non-cover slide. If indispensable, use one 2–4 word phrase derived only from the approved message."
-    : "Render the headline exactly as written and the supporting line only when supplied."
-} Add no other words.
+${headline ? "Render the headline exactly as written." : "Render no headline or other text."} Add no other words.
 
 FINAL CHECK: bright, spacious, premium, internally consistent and immediately understandable; no dark poster aesthetic; no clutter; no unsupported claims.${
     refinement
@@ -173,6 +180,7 @@ export default async function handler(req, res) {
         brand,
         refinement,
         materialNames,
+        carouselPlan: requestedCarouselPlan,
         count: requestedCount,
         slideIndex: requestedSlideIndex,
         slideCount: requestedSlideCount,
@@ -183,6 +191,14 @@ export default async function handler(req, res) {
       count = refinement
         ? 1
         : Math.max(1, Math.min(6, Number(requestedCount) || 1)),
+      carouselPlan = Array.isArray(requestedCarouselPlan)
+        ? requestedCarouselPlan.slice(0, 6).map((slide) => ({
+            role: String(slide?.role || "").slice(0, 60),
+            beat: String(slide?.beat || "").slice(0, 800),
+            copy: String(slide?.copy || "").slice(0, 120),
+            visual: String(slide?.visual || "").slice(0, 1000),
+          }))
+        : [],
       campaignSlides = refinement
         ? 1
         : Math.max(
@@ -229,6 +245,7 @@ export default async function handler(req, res) {
             slideCount: campaignSlides,
             coverReference: !!cover,
             userSourceCount: sources.length,
+            carouselPlan,
           }),
           n: 1,
           size: "1024x1024",
