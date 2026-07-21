@@ -65,6 +65,7 @@ function promptFor({
   carouselPlan,
 }) {
   let slidePlan = carouselPlan?.[slideIndex] || null,
+    narrative = idea?.narrativeBrief || {},
     message = idea?.message || "Communicate one clear premium benefit",
     headline = (
       slidePlan?.copy ??
@@ -100,6 +101,13 @@ OUTPUT: ${platform || "Instagram Feed"}.
 CREATIVE INTENT: ${template || "Product Spotlight"}.
 ${carousel}
 CORE CAMPAIGN MESSAGE: ${message}
+SMMA NARRATIVE DIRECTOR:
+Audience moment: ${narrative.audienceMoment || "Show a specific, recognizable viewer situation."}
+Tension: ${narrative.tension || "Make the unmet need or consequence visible."}
+Turning point: ${narrative.turningPoint || "Show the decision or shift enabled by the approved concept."}
+Visual proof: ${narrative.proofMoment || "Demonstrate the change instead of claiming it."}
+Payoff: ${narrative.payoff || message}
+The visual must express a clear cause-and-effect story. Do not create an isolated product poster, decorative grid or generic product montage. Text may sharpen the story but may never be the story itself.
 BRAND: ${brand?.name || "Snapio AI"}; voice: ${brand?.voice || "clean, confident and premium"}.
 ${sourceRules}
 SOURCE MATERIALS: ${(materialNames || []).join(", ") || "none — text-only creation"}.
@@ -115,7 +123,7 @@ FINAL CHECK: bright, spacious, premium, internally consistent and immediately un
           masked
             ? " A transparent mask marks the edit area. Concentrate the change there and preserve everything outside it."
             : ""
-        }`
+        } Preserve this image's narrative role, audience moment and relationship to the rest of the campaign unless the edit request explicitly changes the story.`
       : ""
   }`;
 }
