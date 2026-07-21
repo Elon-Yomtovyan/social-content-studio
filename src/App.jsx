@@ -845,7 +845,17 @@ function App() {
   };
   const approve = (id) => {
     setData((d) => {
-      let idea = d.ideas.find((x) => x.id === id);
+      let idea = d.ideas.find((x) => x.id === id),
+        narrative =
+          idea.narrativeBrief ||
+          createNarrativeBrief({
+            brand: d.brand,
+            idea,
+            platform: idea.platforms?.[0],
+            placement: idea.destinations?.[0],
+            format: idea.format,
+            slideCount: idea.formatCount || 1,
+          });
       return {
         ...d,
         ideas: d.ideas.map((x) =>
@@ -866,8 +876,8 @@ function App() {
                 formatCount: idea.formatCount,
                 pillar: idea.pillarTag || idea.pillar,
                 visualBrief: idea.visualBrief,
-                narrativeBrief: idea.narrativeBrief,
-                carouselPlan: idea.narrativeBrief?.slidePlan || [],
+                narrativeBrief: narrative,
+                carouselPlan: narrative.slidePlan || [],
                 captionDirection: idea.captionDirection,
                 hashtags: idea.hashtags,
                 cta: idea.cta,
@@ -1474,7 +1484,16 @@ function Ideas({ data, setData, approve, refine, reject, notify }) {
 }
 function Idea({ idea, approve, refine, reject, similar }) {
   let headline = idea.imageHeadline || idea.hook,
-    support = idea.imageSupportingText || "";
+    support = idea.imageSupportingText || "",
+    narrative =
+      idea.narrativeBrief ||
+      createNarrativeBrief({
+        idea,
+        platform: idea.platforms?.[0],
+        placement: idea.destinations?.[0],
+        format: idea.format,
+        slideCount: idea.formatCount || 1,
+      });
   return (
     <article className="idea">
       <div className="ideaTop">
@@ -1495,7 +1514,7 @@ function Idea({ idea, approve, refine, reject, similar }) {
         <small>CORE CAMPAIGN MESSAGE</small>
         <p>{idea.message}</p>
       </div>
-      {idea.narrativeBrief && (
+      {narrative && (
         <div className="narrativePath">
           <div className="narrativePathHead">
             <small>SMMA NARRATIVE DIRECTOR</small>
@@ -1503,11 +1522,11 @@ function Idea({ idea, approve, refine, reject, similar }) {
           </div>
           <ol>
             {[
-              ["Audience moment", idea.narrativeBrief.audienceMoment],
-              ["Tension", idea.narrativeBrief.tension],
-              ["Turning point", idea.narrativeBrief.turningPoint],
-              ["Visual proof", idea.narrativeBrief.proofMoment],
-              ["Payoff", idea.narrativeBrief.payoff],
+              ["Audience moment", narrative.audienceMoment],
+              ["Tension", narrative.tension],
+              ["Turning point", narrative.turningPoint],
+              ["Visual proof", narrative.proofMoment],
+              ["Payoff", narrative.payoff],
             ].map(([label, value]) => (
               <li key={label}>
                 <b>{label}</b>
