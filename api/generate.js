@@ -81,8 +81,8 @@ function promptFor({
     carousel =
       slideCount > 1
         ? `CAROUSEL STORY — SLIDE ${slideIndex + 1} OF ${slideCount}
-Narrative role: ${storyRole(slideIndex, slideCount)}.
-The series progresses once through promise → tension → discovery → proof/application → resolution. This slide adds one new beat; it must not restart the story or repeat the cover.
+Narrative role: ${slidePlan?.role || storyRole(slideIndex, slideCount)}.
+The approved carousel plan below is derived from the saved creative brief and is authoritative. This slide adds one new cause-and-effect beat; it must not restart the story, repeat the cover, or substitute a generic channel, launch or productivity narrative.
 APPROVED STORY BEAT: ${slidePlan?.beat || "Advance the narrative role above with one new idea."}
 APPROVED VISUAL DIRECTION: ${slidePlan?.visual || layoutFor(slideIndex, slideCount)}
 VISUAL STORYTELLING RULE: The scene, action, expression, product use or visible consequence must communicate this beat before any copy is read. The words support the image; they cannot be the entire idea. Show a relatable moment with cause and effect, not a product placed beside a headline.
@@ -101,6 +101,7 @@ OUTPUT: ${platform || "Instagram Feed"}.
 CREATIVE INTENT: ${template || "Product Spotlight"}.
 ${carousel}
 CORE CAMPAIGN MESSAGE: ${message}
+SOURCE-OF-TRUTH RULE: Every scene, action, line of copy and payoff must directly support the core campaign message above. If a generic narrative conflicts with it, discard the generic narrative.
 SMMA NARRATIVE DIRECTOR:
 Audience moment: ${narrative.audienceMoment || "Show a specific, recognizable viewer situation."}
 Tension: ${narrative.tension || "Make the unmet need or consequence visible."}
