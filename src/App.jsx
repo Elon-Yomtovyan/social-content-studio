@@ -4198,17 +4198,16 @@ function ImageComposerBackend({
   let creativeIdea = {
     ...idea,
     ...(item.creativeBrief || {}),
-    narrativeBrief:
-      item.creativeBrief?.narrativeBrief ||
-      item.narrativeBrief ||
-      idea?.narrativeBrief ||
-      createNarrativeBrief({
-        idea: { ...idea, ...(item.creativeBrief || {}) },
-        platform: item.platforms?.[0],
-        placement: item.destinations?.[0],
-        format: item.format,
-        slideCount: item.formatCount || 1,
-      }),
+    // Re-derive this from the current source fields on every open. This also
+    // migrates older items whose stored narrative was built before creative
+    // briefs became authoritative.
+    narrativeBrief: createNarrativeBrief({
+      idea: { ...idea, ...(item.creativeBrief || {}) },
+      platform: item.platforms?.[0],
+      placement: item.destinations?.[0],
+      format: item.format,
+      slideCount: item.formatCount || idea?.formatCount || 1,
+    }),
   };
   let briefSignature = [
     creativeIdea.message,
