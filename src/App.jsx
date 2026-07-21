@@ -2687,8 +2687,23 @@ function CreativeBrief({ item, idea, update, notify }) {
         </div>
         <button
           onClick={() => {
-            update({ creativeBrief: draft });
-            notify("Creative brief saved");
+            let slideCount = Math.max(
+                1,
+                Math.min(6, item.formatCount || idea?.formatCount || 1),
+              ),
+              narrativeBrief = createNarrativeBrief({
+                idea: { ...idea, ...draft },
+                platform: item.platforms?.[0],
+                placement: item.destinations?.[0],
+                format: item.format,
+                slideCount,
+              });
+            update({
+              creativeBrief: { ...draft, narrativeBrief },
+              narrativeBrief,
+              carouselPlan: narrativeBrief.slidePlan,
+            });
+            notify("Creative brief saved and storyboard rebuilt");
           }}
         >
           <I.Save size={15} />
@@ -3998,6 +4013,26 @@ function carouselStoryProfile(idea = {}) {
       .filter(Boolean)
       .join(" ")
       .toLowerCase();
+  // A saved creative brief is the campaign's source of truth. Check its
+  // specific narrative territory before broad words such as "campaign" or
+  // "channel" can trigger a generic fallback story.
+  if (
+    /brief changed|direction changed|new campaign direction|change the scene|keep the product|approved product|product intact|same product/.test(
+      text,
+    )
+  )
+    return {
+      situation: "The product photo is approved. Then the brief changes.",
+      tension:
+        "A new shoot slows the campaign down—and recreating the product can change the details already approved.",
+      turn: "Lock the approved product. Change only the scene around it.",
+      proof:
+        "The setting follows the new direction while the product shape, color and details stay intact.",
+      payoff: "New campaign direction. Same approved product.",
+      context:
+        "a creative team responding to a late brief change without sacrificing the approved product",
+      territory: "Brief changed after product approval",
+    };
   if (/channel|placement|format|feed|story|campaign/.test(text))
     return {
       situation: "The product is ready. The channel assets are not.",
@@ -4063,19 +4098,22 @@ function createNarrativeBrief({
   userContext = "",
 } = {}) {
   let story = carouselStoryProfile({ ...idea, userContext }),
+    campaignMessage = (idea.message || "").trim(),
+    campaignHeadline = (idea.imageHeadline || idea.hook || "").trim(),
+    campaignSupport = (idea.imageSupportingText || "").trim(),
     count = Math.max(1, Math.min(6, Number(slideCount) || 1)),
     roles = Array.from({ length: count }, (_, index) =>
       carouselPlanRole(index, count),
     ),
     copyByRole = {
-      Situation: story.situation,
+      Situation: campaignHeadline || story.situation,
       Tension: story.tension,
-      "Turning point": story.turn,
-      Decision: story.turn,
+      "Turning point": campaignSupport || story.turn,
+      Decision: campaignSupport || story.turn,
       Transformation: story.proof,
       Proof: story.proof,
       Payoff: story.payoff,
-      "Complete story": idea.imageHeadline || idea.hook || story.payoff,
+      "Complete story": campaignHeadline || story.payoff,
     },
     slidePlan = Array.from({ length: count }, (_, index) => {
     let role = roles[index],
@@ -4092,13 +4130,19 @@ function createNarrativeBrief({
               : ["Transformation", "Proof"].includes(role)
                 ? `Demonstrate the change instead of claiming it: ${story.proof}`
                 : `Resolve the opening tension with a clear emotional and visual payoff: ${story.payoff}`,
-      visual = `Show ${role.toLowerCase()} as a real moment involving ${story.context}. Continue from ${previousRole || "the audience's everyday reality"}${nextRole ? ` and create a visual reason to swipe toward ${nextRole.toLowerCase()}` : ". Close the story"}. The image must communicate the beat even with all text removed; use the same product, protagonist or environment when continuity is relevant. Do not make a product-and-headline poster or a generic montage.`;
+      visual = `CAMPAIGN ANCHOR: ${campaignMessage || story.payoff} Show ${role.toLowerCase()} as a real moment involving ${story.context}. Continue from ${previousRole || "the audience's everyday reality"}${nextRole ? ` and create a visual reason to swipe toward ${nextRole.toLowerCase()}` : ". Close the story"}. Every visual decision must prove the campaign anchor rather than introduce a different content idea. The image must communicate the beat even with all text removed; use the same product, protagonist or environment when continuity is relevant. Do not make a product-and-headline poster or a generic montage.`;
       return { index, role, beat, copy, visual };
     }),
-    coreMessage = idea.message || story.payoff,
+    coreMessage = campaignMessage || story.payoff,
     captionDirection = `${story.situation}\n\n${story.tension}\n\n${story.turn} ${story.proof}\n\n${story.payoff}`;
   return {
     director: "SMMA Narrative Director",
+    campaignAnchor: {
+      message: coreMessage,
+      headline: campaignHeadline,
+      supportingLine: campaignSupport,
+      territory: story.territory || "Campaign narrative",
+    },
     audienceMoment: story.situation,
     tension: story.tension,
     turningPoint: story.turn,
@@ -4166,6 +4210,12 @@ function ImageComposerBackend({
         slideCount: item.formatCount || 1,
       }),
   };
+  let briefSignature = [
+    creativeIdea.message,
+    creativeIdea.imageHeadline,
+    creativeIdea.imageSupportingText,
+    creativeIdea.narrativeBrief?.coreMessage,
+  ].join("|");
   const [busy, setBusy] = useState(false),
     [variants, setVariants] = useState(
       item.carouselImages || item.generatedVariants || [],
@@ -4196,6 +4246,17 @@ function ImageComposerBackend({
     [preview, setPreview] = useState(null),
     [marking, setMarking] = useState(false),
     [maskRegion, setMaskRegion] = useState(null);
+  useEffect(() => {
+    // A saved brief rebuilds the production narrative. Keep an already-open
+    // storyboard synchronized instead of showing its stale generic beats.
+    setCarouselPlan(
+      buildCarouselPlan(
+        slideCount,
+        creativeIdea,
+        item.carouselPlan || creativeIdea.narrativeBrief?.slidePlan || [],
+      ),
+    );
+  }, [briefSignature]);
   let images = materials.filter((m) => m.src && !/logo/i.test(m.name)),
     selectedIndex = Number.isInteger(item.selectedVariant)
       ? item.selectedVariant
@@ -4747,6 +4808,35 @@ function ImageComposerBackend({
                 .map((slide) => slide.role)
                 .join(" → ")}
             </span>
+          </div>
+          <div className="campaignAnchor">
+            <div>
+              <small>CAMPAIGN SOURCE OF TRUTH</small>
+              <b>
+                {creativeIdea.message || creativeIdea.narrativeBrief?.coreMessage}
+              </b>
+            </div>
+            <dl>
+              <div>
+                <dt>Opening copy</dt>
+                <dd>{creativeIdea.imageHeadline || "No headline"}</dd>
+              </div>
+              <div>
+                <dt>Story shift</dt>
+                <dd>
+                  {creativeIdea.imageSupportingText ||
+                    creativeIdea.narrativeBrief?.turningPoint}
+                </dd>
+              </div>
+              <div>
+                <dt>Payoff</dt>
+                <dd>{creativeIdea.narrativeBrief?.payoff}</dd>
+              </div>
+            </dl>
+            <p>
+              Every slide below must advance this exact message. It cannot
+              switch to a generic channel, launch, or productivity story.
+            </p>
           </div>
           <div className="storyboardSlides">
             {buildCarouselPlan(slideCount, creativeIdea, carouselPlan).map(
