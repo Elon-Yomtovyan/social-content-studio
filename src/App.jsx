@@ -525,7 +525,29 @@ function fallbackIdeas(form, count, existingIdeas = []) {
               : format === "Screenshot / UI mock"
                 ? "Make the supplied interface or workflow evidence the hero; annotate only what is necessary."
                 : "Keep the meme instantly legible, audience-specific and visually consistent with Snapio.",
-      visualBrief = `${formatExecution} ${recipe.direction(f)} Use the ${recipe.template} template system. On-image headline: “${recipe.hook(f)}”. Supporting copy: “${recipe.support(f)}”. Style: ${brandStyle} ${form.brand?.defaultVisualStyle || "Keep the result modern, minimal and product-focused."}${form.context?.trim() ? ` Campaign constraint supplied by the user: ${form.context.trim()}` : ""}`;
+      visualBrief = `${formatExecution} ${recipe.direction(f)} Use the ${recipe.template} template system. On-image headline: “${recipe.hook(f)}”. Supporting copy: “${recipe.support(f)}”. Style: ${brandStyle} ${form.brand?.defaultVisualStyle || "Keep the result modern, minimal and product-focused."}${form.context?.trim() ? ` Campaign constraint supplied by the user: ${form.context.trim()}` : ""}`,
+      ideaDraft = {
+        title: recipe.title(f),
+        message: recipe.message(f),
+        hook: recipe.hook(f),
+        imageHeadline: recipe.hook(f),
+        imageSupportingText: recipe.support(f),
+        audienceInsight: recipe.insight(f),
+        creativeDirection: recipe.direction(f),
+        visualBrief,
+        pillar: pillarTag,
+        platforms: form.platforms,
+        destinations,
+      },
+      narrativeBrief = createNarrativeBrief({
+        brand: form.brand,
+        idea: ideaDraft,
+        platform: form.platforms[0],
+        placement: destinations[0],
+        format,
+        slideCount: formatCount,
+        userContext: form.context,
+      });
     return {
       id: `i${Date.now()}-${index}`,
       title: recipe.title(f),
@@ -547,7 +569,13 @@ function fallbackIdeas(form, count, existingIdeas = []) {
       destinations,
       platformPlacement: destinations,
       visualBrief,
-      captionDirection,
+      captionDirection: `${narrativeBrief.captionDirection}\n\nPlatform direction: ${captionDirection}`,
+      narrativeBrief,
+      audienceMoment: narrativeBrief.audienceMoment,
+      tension: narrativeBrief.tension,
+      turningPoint: narrativeBrief.turningPoint,
+      proofMoment: narrativeBrief.proofMoment,
+      payoff: narrativeBrief.payoff,
       hashtags,
       cta,
       dimensionSpecs: destinations.map((placement) => ({
@@ -577,6 +605,8 @@ const defaultBrand = {
   messagingRule: "Every post should communicate one primary message and use minimal on-image copy.",
   claimsRestriction: "Never invent statistics, customer quotes, prices, performance results or product capabilities.",
   defaultVisualStyle: "Modern, premium, AI-native, minimal, friendly, clean and content-focused. Avoid dark poster designs, excessive gradients, decorative clutter and dense text.",
+  narrativeRule: "Every content item must begin with a recognizable audience moment, make the tension visible, show a clear Snapio-enabled shift, provide visual proof and land one memorable payoff. The image must communicate the story even without text.",
+  narrativeTerritories: "Missing campaign asset, flat packshot, late brief change, channel adaptation, product fidelity concern, SKU inconsistency, creative iteration and approval chaos.",
   preferredPlatforms: ["Instagram", "LinkedIn", "Facebook"],
 };
 const initial = {
@@ -836,6 +866,8 @@ function App() {
                 formatCount: idea.formatCount,
                 pillar: idea.pillarTag || idea.pillar,
                 visualBrief: idea.visualBrief,
+                narrativeBrief: idea.narrativeBrief,
+                carouselPlan: idea.narrativeBrief?.slidePlan || [],
                 captionDirection: idea.captionDirection,
                 hashtags: idea.hashtags,
                 cta: idea.cta,
@@ -1463,6 +1495,28 @@ function Idea({ idea, approve, refine, reject, similar }) {
         <small>CORE CAMPAIGN MESSAGE</small>
         <p>{idea.message}</p>
       </div>
+      {idea.narrativeBrief && (
+        <div className="narrativePath">
+          <div className="narrativePathHead">
+            <small>SMMA NARRATIVE DIRECTOR</small>
+            <span>Audience moment → tension → shift → proof → payoff</span>
+          </div>
+          <ol>
+            {[
+              ["Audience moment", idea.narrativeBrief.audienceMoment],
+              ["Tension", idea.narrativeBrief.tension],
+              ["Turning point", idea.narrativeBrief.turningPoint],
+              ["Visual proof", idea.narrativeBrief.proofMoment],
+              ["Payoff", idea.narrativeBrief.payoff],
+            ].map(([label, value]) => (
+              <li key={label}>
+                <b>{label}</b>
+                <span>{value}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
       <div className="imageCopyPlan">
         <small>TEXT PLANNED FOR THE IMAGE</small>
         <div>
@@ -1583,11 +1637,23 @@ function Refine({ idea, close, save }) {
       message: idea.message,
       at: Date.now(),
     };
-    save({
+    let nextIdea = {
       ...idea,
       hook: ins.includes("hook") ? `Stop scrolling: ${idea.hook}` : idea.hook,
       message: `${idea.message} Refined to feel ${ins.toLowerCase()}.`,
       revisions: [...idea.revisions, prev],
+    };
+    save({
+      ...nextIdea,
+      narrativeBrief: createNarrativeBrief({
+        brand: idea.brand || {},
+        idea: nextIdea,
+        platform: idea.platforms?.[0],
+        placement: idea.destinations?.[0],
+        format: idea.format,
+        slideCount: idea.formatCount || 1,
+        userContext: ins,
+      }),
     });
     setIns("");
   };
@@ -1963,6 +2029,8 @@ function Brand({ data, setData, notify }) {
     ["messagingRule", "Messaging rule", true],
     ["claimsRestriction", "Claims restriction", true],
     ["defaultVisualStyle", "Default visual style", true],
+    ["narrativeRule", "SMMA narrative rule", true],
+    ["narrativeTerritories", "Default narrative territories", true],
     ["cta", "Default CTA", false],
     ["avoid", "Words to avoid", false],
   ];
@@ -3888,6 +3956,7 @@ function AreaMarker({ src, value, save, close }) {
   );
 }
 function carouselPlanRole(index, count) {
+  if (count === 1) return "Complete story";
   let arcs = {
     2: ["Situation", "Payoff"],
     3: ["Situation", "Turning point", "Payoff"],
@@ -3905,6 +3974,7 @@ function carouselStoryProfile(idea = {}) {
       idea.creativeDirection,
       idea.visualBrief,
       idea.pillar,
+      idea.userContext,
     ]
       .filter(Boolean)
       .join(" ")
@@ -3963,8 +4033,18 @@ function carouselStoryProfile(idea = {}) {
     context: "an ecommerce team trying to finish a product launch with limited source material",
   };
 }
-function buildCarouselPlan(count, idea = {}, existing = []) {
-  let story = carouselStoryProfile(idea),
+function createNarrativeBrief({
+  brand = {},
+  idea = {},
+  platform = "Instagram",
+  placement = "Feed",
+  format = "Single image",
+  slideCount = 1,
+  sourceMaterials = [],
+  userContext = "",
+} = {}) {
+  let story = carouselStoryProfile({ ...idea, userContext }),
+    count = Math.max(1, Math.min(6, Number(slideCount) || 1)),
     roles = Array.from({ length: count }, (_, index) =>
       carouselPlanRole(index, count),
     ),
@@ -3976,8 +4056,9 @@ function buildCarouselPlan(count, idea = {}, existing = []) {
       Transformation: story.proof,
       Proof: story.proof,
       Payoff: story.payoff,
-    };
-  return Array.from({ length: count }, (_, index) => {
+      "Complete story": idea.imageHeadline || idea.hook || story.payoff,
+    },
+    slidePlan = Array.from({ length: count }, (_, index) => {
     let role = roles[index],
       previousRole = index ? roles[index - 1] : null,
       nextRole = index < count - 1 ? roles[index + 1] : null,
@@ -3993,11 +4074,55 @@ function buildCarouselPlan(count, idea = {}, existing = []) {
                 ? `Demonstrate the change instead of claiming it: ${story.proof}`
                 : `Resolve the opening tension with a clear emotional and visual payoff: ${story.payoff}`,
       visual = `Show ${role.toLowerCase()} as a real moment involving ${story.context}. Continue from ${previousRole || "the audience's everyday reality"}${nextRole ? ` and create a visual reason to swipe toward ${nextRole.toLowerCase()}` : ". Close the story"}. The image must communicate the beat even with all text removed; use the same product, protagonist or environment when continuity is relevant. Do not make a product-and-headline poster or a generic montage.`;
-    let defaults = { index, role, beat, copy, visual };
-    return existing[index]?.customized
-      ? { ...defaults, ...existing[index], index, role }
-      : defaults;
-  });
+      return { index, role, beat, copy, visual };
+    }),
+    coreMessage = idea.message || story.payoff,
+    captionDirection = `${story.situation}\n\n${story.tension}\n\n${story.turn} ${story.proof}\n\n${story.payoff}`;
+  return {
+    director: "SMMA Narrative Director",
+    audienceMoment: story.situation,
+    tension: story.tension,
+    turningPoint: story.turn,
+    proofMoment: story.proof,
+    payoff: story.payoff,
+    coreMessage,
+    visualStory: `Tell a cause-and-effect story about ${story.context}. The image must communicate the moment even without text.`,
+    onImageCopy: slidePlan.map((slide) => slide.copy),
+    captionDirection,
+    slidePlan,
+    platform,
+    placement,
+    format,
+    sourceMaterialCount: sourceMaterials.length,
+    generationRules: [
+      brand.narrativeRule ||
+        "Every content item must be based on a clear viewer-relatable story",
+      "Use one recognizable audience situation",
+      "Make the tension visible rather than labeling it",
+      "Show the Snapio-enabled shift through action or visual proof",
+      "Preserve product truth and story continuity",
+      "Use minimal copy that sharpens rather than carries the idea",
+      brand.claimsRestriction || "Never invent claims, statistics, prices or customer proof",
+    ],
+  };
+}
+function buildCarouselPlan(count, idea = {}, existing = []) {
+  let defaults =
+    idea.narrativeBrief?.slidePlan?.length === count
+      ? idea.narrativeBrief.slidePlan
+      : createNarrativeBrief({
+          brand: idea.brand || {},
+          idea,
+          platform: idea.platforms?.[0],
+          placement: idea.destinations?.[0],
+          format: "Carousel",
+          slideCount: count,
+        }).slidePlan;
+  return defaults.map((slide, index) =>
+    existing[index]?.customized
+      ? { ...slide, ...existing[index], index, role: slide.role }
+      : slide,
+  );
 }
 function ImageComposerBackend({
   item,
@@ -4007,7 +4132,21 @@ function ImageComposerBackend({
   notify,
   close,
 }) {
-  let creativeIdea = { ...idea, ...(item.creativeBrief || {}) };
+  let creativeIdea = {
+    ...idea,
+    ...(item.creativeBrief || {}),
+    narrativeBrief:
+      item.creativeBrief?.narrativeBrief ||
+      item.narrativeBrief ||
+      idea?.narrativeBrief ||
+      createNarrativeBrief({
+        idea: { ...idea, ...(item.creativeBrief || {}) },
+        platform: item.platforms?.[0],
+        placement: item.destinations?.[0],
+        format: item.format,
+        slideCount: item.formatCount || 1,
+      }),
+  };
   const [busy, setBusy] = useState(false),
     [variants, setVariants] = useState(
       item.carouselImages || item.generatedVariants || [],
@@ -4912,14 +5051,18 @@ function platformOutput(src, spec) {
 function defaultPlatformCopy(platform, idea) {
   let linked = platform === "LinkedIn",
     short = platform === "X",
-    s = platformSpec(platform);
+    s = platformSpec(platform),
+    narrative =
+      idea?.narrativeBrief ||
+      createNarrativeBrief({ idea, platform, placement: platform }),
+    storyCaption = `${narrative.audienceMoment}\n\n${narrative.tension}\n\n${narrative.turningPoint} ${narrative.proofMoment}\n\n${narrative.payoff}`;
   return {
     caption: short
-      ? `${idea?.hook || idea?.title} ${idea?.message || ""}`.slice(0, 250)
+      ? `${narrative.audienceMoment} ${narrative.turningPoint} ${narrative.payoff}`.slice(0, 250)
       : linked
-        ? `${idea?.hook || idea?.title}\n\n${idea?.message || ""}\n\nA practical way to create more content without compromising quality.`
-        : `${idea?.hook || idea?.title} ✨\n\n${idea?.message || ""}\n\nSave this for your next campaign.`,
-    cta: "Learn more",
+        ? `${storyCaption}\n\nPractical takeaway: start from the approved product source and build the missing campaign content without losing product truth.`
+        : `${storyCaption}\n\nWhat is usually the last visual your team waits for before launch?`,
+    cta: idea?.cta && idea.cta !== "None" ? idea.cta : "Comment prompt",
     hashtags: linked
       ? "#AI #CreativeOps #Ecommerce"
       : platform === "TikTok"
@@ -5248,6 +5391,7 @@ function calendarItems(data) {
           dimensions:
             v.dimensions ||
             `${platformSpec(platform).w} × ${platformSpec(platform).h}`,
+          narrativeBrief: p.narrativeBrief || idea?.narrativeBrief,
           idea,
         });
     });
@@ -5268,6 +5412,7 @@ function calendarItems(data) {
         image: p.rendered,
         images: sourceImages,
         dimensions: `${platformSpec(dest[0] || "Instagram Feed").w} × ${platformSpec(dest[0] || "Instagram Feed").h}`,
+        narrativeBrief: p.narrativeBrief || idea?.narrativeBrief,
         idea,
       });
   });
@@ -5799,6 +5944,14 @@ function PublishDetail({ entry, close, update, remove, notify }) {
                 </small>
               )}
             </div>
+            {entry.narrativeBrief && (
+              <div className="publishNarrative">
+                <small>SMMA STORY INTENT</small>
+                <b>{entry.narrativeBrief.audienceMoment}</b>
+                <span>→ {entry.narrativeBrief.turningPoint}</span>
+                <span>→ {entry.narrativeBrief.payoff}</span>
+              </div>
+            )}
             <label>
               Caption
               <textarea
