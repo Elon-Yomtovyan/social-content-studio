@@ -31,7 +31,7 @@ The connecting Facebook profile must have full control of the selected Page.
 - `PINTEREST_APP_ID`
 - `PINTEREST_APP_SECRET`
 - `SOCIAL_SESSION_SECRET`
-- Callback: `/api/pinterest/callback`
+- Callback: `/api/social/pinterest/callback`
 - Scopes: `user_accounts:read`, `boards:read`, `pins:read`, `pins:write`
 
 Pinterest publishing access is subject to the app's approved API access level.
@@ -41,7 +41,7 @@ Pinterest publishing access is subject to the app's approved API access level.
 - `TIKTOK_CLIENT_KEY`
 - `TIKTOK_CLIENT_SECRET`
 - `SOCIAL_SESSION_SECRET`
-- Callback: `/api/tiktok/callback`
+- Callback: `/api/social/tiktok/callback`
 - Products: Login Kit and Content Posting API
 - Scopes: `user.info.basic`, `video.publish`
 
@@ -53,7 +53,7 @@ direct posting requires TikTok approval and audit.
 - `YOUTUBE_CLIENT_ID`
 - `YOUTUBE_CLIENT_SECRET`
 - `SOCIAL_SESSION_SECRET`
-- Callback: `/api/youtube/callback`
+- Callback: `/api/social/youtube/callback`
 - API: YouTube Data API v3
 - Scopes: `youtube.readonly`, `youtube.upload`
 
