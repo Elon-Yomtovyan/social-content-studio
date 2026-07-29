@@ -425,6 +425,75 @@
   color: #fff;
 }
 
+.integrationBadge {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  place-items: center;
+  border-radius: 13px;
+  background: #f2f5fa;
+}
+
+.integrationBadge .platformMark {
+  width: 30px;
+  height: 30px;
+  font-size: 11px;
+}
+
+.providerConnection {
+  margin-top: 14px;
+}
+
+.providerChecklist {
+  display: grid;
+  gap: 10px;
+}
+
+.environmentLabel {
+  color: #53617b;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.environmentKeys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.environmentKeys code {
+  padding: 7px 9px;
+  border: 1px solid #dfe5ef;
+  border-radius: 8px;
+  background: #f6f8fb;
+  color: #34425b;
+  font-size: 11px;
+}
+
+.providerReviewNote {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: #f7f8fb;
+  color: #69758b;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.providerReviewNote svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.providerConnection .profilePlaceholder .platformMark {
+  width: 30px;
+  height: 30px;
+}
+
 @media (max-width: 960px) {
   .plannerBody {
     grid-template-columns: 1fr;
