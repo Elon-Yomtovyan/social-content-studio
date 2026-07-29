@@ -102,7 +102,7 @@ export function origin(req) {
 }
 
 export function callbackUrl(req, provider) {
-  return `${origin(req)}/api/${provider}/callback`;
+  return `${origin(req)}/api/social/${provider}/callback`;
 }
 
 export function home(req, provider, result, reason = "") {
