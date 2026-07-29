@@ -9,6 +9,8 @@ export default async function handler(req, res) {
   url.searchParams.set("redirect_uri", callbackUrl(req));
   url.searchParams.set("response_type", "code");
   url.searchParams.set("scope", "pages_show_list,pages_read_engagement,pages_manage_posts");
+  url.searchParams.set("auth_type", "rerequest");
+  url.searchParams.set("return_scopes", "true");
   url.searchParams.set("state", state);
   return res.redirect(302, url.toString());
 }
