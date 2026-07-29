@@ -1,0 +1,477 @@
+.uploadSchedule {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 10px;
+  background: #4268ed;
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 6px 16px rgba(49, 88, 226, 0.18);
+}
+
+.finishedPlannerBack {
+  z-index: 130;
+  padding: 24px;
+  overflow: auto;
+  background: rgba(15, 26, 51, 0.55);
+}
+
+.finishedPlanner {
+  width: min(1220px, calc(100vw - 48px));
+  max-height: calc(100vh - 48px);
+  margin: auto;
+  overflow: auto;
+  border: 1px solid #dfe5ef;
+  border-radius: 20px;
+  background: #f7f9fc;
+  box-shadow: 0 28px 80px rgba(15, 26, 51, 0.2);
+}
+
+.plannerHead {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px 28px;
+  border-bottom: 1px solid #e1e6ef;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(12px);
+}
+
+.plannerHead small {
+  color: #6e7e9d;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+
+.plannerHead h2 {
+  margin: 5px 0 4px;
+  color: #111c35;
+  font-size: 25px;
+}
+
+.plannerHead p,
+.plannerSectionHead p,
+.copyHead p {
+  margin: 0;
+  color: #73809a;
+  font-size: 13px;
+}
+
+.plannerBody {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 250px;
+  gap: 18px;
+  padding: 20px;
+}
+
+.plannerBody > section,
+.plannerSummary {
+  border: 1px solid #e0e6f0;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.plannerBody > section {
+  padding: 20px;
+}
+
+.finishedDrop {
+  display: flex;
+  min-height: 150px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+  border: 1.5px dashed #9db2ef;
+  border-radius: 14px;
+  background: #f5f8ff;
+  color: #4268ed;
+  text-align: center;
+  transition: 160ms ease;
+}
+
+.finishedDrop:hover {
+  border-color: #4268ed;
+  background: #eef3ff;
+}
+
+.finishedDrop svg {
+  width: 24px;
+  height: 24px;
+}
+
+.finishedDrop span {
+  color: #75829a;
+  font-size: 12px;
+}
+
+.finishedDrop input {
+  display: none;
+}
+
+.finishedFiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.finishedFiles article {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid #e1e6ef;
+  border-radius: 11px;
+}
+
+.finishedFiles img,
+.finishedFiles article > svg {
+  width: 46px;
+  height: 46px;
+  border-radius: 8px;
+  background: #eef2f8;
+  object-fit: cover;
+}
+
+.finishedFiles span,
+.finishedFiles b,
+.finishedFiles small {
+  display: block;
+  min-width: 0;
+}
+
+.finishedFiles b {
+  overflow: hidden;
+  color: #17223d;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.finishedFiles small {
+  margin-top: 2px;
+  color: #8793aa;
+  font-size: 10px;
+}
+
+.finishedFiles button {
+  display: grid;
+  width: 27px;
+  height: 27px;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  background: #f2f4f8;
+}
+
+.plannerFields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.plannerBody label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #53617b;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.plannerBody input,
+.plannerBody textarea {
+  width: 100%;
+  border: 1px solid #d9e0eb;
+  border-radius: 9px;
+  background: #fff;
+  color: #17223d;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.plannerBody input {
+  min-height: 39px;
+  padding: 0 11px;
+}
+
+.plannerBody textarea {
+  min-height: 116px;
+  padding: 11px;
+  resize: vertical;
+}
+
+.plannerBody label small {
+  color: #8793aa;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.plannerSectionHead {
+  display: flex;
+  justify-content: space-between;
+  margin: 24px 0 10px;
+}
+
+.plannerSectionHead h3,
+.copyHead h3,
+.plannerSummary h3 {
+  margin: 0 0 3px;
+  color: #17223d;
+  font-size: 15px;
+}
+
+.plannerPlatforms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.plannerPlatforms button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 9px;
+  border: 1px solid #dce3ee;
+  border-radius: 10px;
+  background: #fff;
+  color: #526079;
+  font-size: 11px;
+}
+
+.plannerPlatforms button.selected {
+  border-color: #4268ed;
+  background: #f1f5ff;
+  color: #3158d9;
+  font-weight: 700;
+}
+
+.plannerEditor {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  min-height: 330px;
+  margin-top: 15px;
+  overflow: hidden;
+  border: 1px solid #dfe5ef;
+  border-radius: 13px;
+}
+
+.plannerEditor > aside {
+  padding: 8px;
+  border-right: 1px solid #e0e6ef;
+  background: #f7f9fc;
+}
+
+.plannerEditor > aside button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  padding: 9px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #53617b;
+  text-align: left;
+}
+
+.plannerEditor > aside button.on {
+  background: #fff;
+  color: #3158d9;
+  box-shadow: 0 2px 8px rgba(25, 43, 82, 0.08);
+}
+
+.plannerEditor > aside span,
+.plannerEditor > aside small {
+  display: block;
+}
+
+.plannerEditor > aside span {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.plannerEditor > aside small {
+  margin-top: 2px;
+  color: #8995aa;
+  font-size: 9px;
+  font-weight: 500;
+}
+
+.plannerEditor > section {
+  padding: 16px;
+}
+
+.copyHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 13px;
+}
+
+.copyHead button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 9px;
+  border: 1px solid #cdd8f5;
+  border-radius: 8px;
+  background: #f5f8ff;
+  color: #3158d9;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.plannerSummary {
+  position: sticky;
+  top: 108px;
+  display: flex;
+  height: fit-content;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px;
+}
+
+.plannerSummary > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #59667e;
+  font-size: 12px;
+}
+
+.timingHint {
+  margin: 5px 0;
+  padding: 12px;
+  border-radius: 11px;
+  background: #f2f6ff;
+  color: #4567d5;
+}
+
+.timingHint svg {
+  width: 17px;
+}
+
+.timingHint b {
+  display: block;
+  margin: 5px 0 3px;
+  color: #263e93;
+  font-size: 12px;
+}
+
+.timingHint p {
+  margin: 0;
+  color: #65749a;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.plannerSummary > button {
+  min-height: 40px;
+  border: 1px solid #d9e0eb;
+  border-radius: 9px;
+  background: #fff;
+  color: #33415d;
+  font-weight: 700;
+}
+
+.plannerSummary > button.primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border-color: #4268ed;
+  background: #4268ed;
+  color: #fff;
+}
+
+.futureConnection .connectionBrand {
+  align-items: center;
+}
+
+.compactConnect {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.compactConnect p {
+  margin: 0;
+  color: #6b7891;
+  font-size: 12px;
+}
+
+.compactConnect button {
+  flex: 0 0 auto;
+}
+
+.platformMark.pin {
+  background: #e60023;
+  color: #fff;
+}
+
+@media (max-width: 960px) {
+  .plannerBody {
+    grid-template-columns: 1fr;
+  }
+
+  .plannerSummary {
+    position: static;
+  }
+
+  .plannerEditor {
+    grid-template-columns: 1fr;
+  }
+
+  .plannerEditor > aside {
+    display: flex;
+    overflow-x: auto;
+    border-right: 0;
+    border-bottom: 1px solid #e0e6ef;
+  }
+
+  .plannerEditor > aside button {
+    min-width: 170px;
+  }
+}
+
+@media (max-width: 640px) {
+  .finishedPlannerBack {
+    padding: 0;
+  }
+
+  .finishedPlanner {
+    width: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .plannerHead,
+  .plannerBody {
+    padding: 16px;
+  }
+
+  .plannerFields {
+    grid-template-columns: 1fr;
+  }
+
+  .compactConnect {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
