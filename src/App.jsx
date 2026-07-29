@@ -6298,3 +6298,209 @@ function PublishDetail({ entry, close, update, remove, notify }) {
       setBusy(false);
     }
   };
+  return (
+    <div className="modalback publishBack">
+      <div className="publishDetail">
+        <div className="publishHead">
+          <div>
+            <PlatformMark name={entry.platform} />
+            <div>
+              <small>PUBLISHING DETAILS</small>
+              <h2>{entry.title}</h2>
+              <p>
+                {entry.platform} · {entry.date} at {entry.time}
+              </p>
+            </div>
+          </div>
+          <button className="icon" onClick={close}>
+            <I.X />
+          </button>
+        </div>
+        <div className="publishContent">
+          <div className="publishVisual">
+            {media.length ? (
+              <div
+                className={`publishMediaGrid ${media.length === 1 ? "single" : ""}`}
+              >
+                {media.map((src, i) => (
+                  <figure key={i}>
+                    <img src={src} />
+                    {media.length > 1 && <span>{i + 1}</span>}
+                  </figure>
+                ))}
+              </div>
+            ) : (
+              <div>
+                <I.Image />
+                <p>No rendered asset yet</p>
+              </div>
+            )}
+            <button onClick={download}>
+              <I.Download size={16} />
+              Download {media.length > 1 ? "carousel" : "image"}
+            </button>
+          </div>
+          <section>
+            <div className="publishStatus">
+              <span className={`statusPill ${entry.status.toLowerCase()}`}>
+                {entry.status}
+              </span>
+              {media.length > 1 && <small>{media.length}-slide carousel</small>}
+              {entry.status === "Published" && (
+                <small>
+                  {entry.facebookPostId
+                    ? "Published to Facebook"
+                    : entry.instagramMediaId
+                      ? "Published to Instagram"
+                    : "Published manually"}
+                </small>
+              )}
+            </div>
+            {entry.narrativeBrief && (
+              <div className="publishNarrative">
+                <small>SMMA STORY INTENT</small>
+                <b>{entry.narrativeBrief.audienceMoment}</b>
+                <span>→ {entry.narrativeBrief.turningPoint}</span>
+                <span>→ {entry.narrativeBrief.payoff}</span>
+              </div>
+            )}
+            <label>
+              Caption
+              <textarea
+                value={entry.caption}
+                onChange={(e) => update({ caption: e.target.value })}
+              />
+            </label>
+            <label>
+              Hashtags
+              <input
+                value={entry.hashtags}
+                onChange={(e) => update({ hashtags: e.target.value })}
+              />
+            </label>
+            <div className="publishMeta">
+              <label>
+                Date
+                <input
+                  type="date"
+                  value={entry.date}
+                  onChange={(e) => update({ date: e.target.value })}
+                />
+              </label>
+              <label>
+                Time
+                <input
+                  type="time"
+                  value={entry.time}
+                  onChange={(e) => update({ time: e.target.value })}
+                />
+              </label>
+            </div>
+            {error && <p className="renderError">{error}</p>}
+            <div className="publishActions">
+              <button onClick={copy}>
+                <I.Copy size={15} />
+                Copy post text
+              </button>
+              {entry.permalink && (
+                <a href={entry.permalink} target="_blank" rel="noreferrer">
+                  View published post
+                </a>
+              )}
+              {entry.status !== "Published" &&
+                (directPublish ? (
+                  <button
+                    className="primary"
+                    onClick={publishNow}
+                    disabled={busy}
+                  >
+                    {busy ? (
+                      <>
+                        <I.LoaderCircle className="spin" />
+                        Publishing…
+                      </>
+                    ) : (
+                      <>
+                        <I.Send size={16} />
+                        Publish to {isFacebook ? "Facebook" : "Instagram"}
+                      </>
+                    )}
+                  </button>
+                ) : (
+                  <button className="primary" onClick={mark}>
+                    <I.CheckCircle2 size={16} />
+                    Mark as published
+                  </button>
+                ))}
+              <button className="removeCalendar" onClick={remove}><I.Trash2 size={15}/>Remove from calendar</button>
+            </div>
+            <p className="integrationNote">
+              <I.Info size={14} />
+              {placementNote}
+            </p>
+          </section>
+        </div>
+      </div>
+    </div>
+  );
+}
+function JobCenter({ jobs, openProduction, dismiss }) {
+  if (!jobs.length) return null;
+  let job = jobs[0],
+    running = jobs.filter((x) => x.status === "running").length,
+    review = () => {
+      openProduction();
+      setTimeout(
+        () =>
+          window.dispatchEvent(
+            new CustomEvent("scs-open-production", {
+              detail: { id: job.productionId },
+            }),
+          ),
+        80,
+      );
+    };
+  return (
+    <div className={`jobCenter jobBar ${job.status}`}>
+      <span className="jobState">
+        {job.status === "running" ? (
+          <I.LoaderCircle className="spin" />
+        ) : job.status === "ready" ? (
+          <I.CheckCircle2 />
+        ) : (
+          <I.CircleAlert />
+        )}
+      </span>
+      <div className="jobBarCopy">
+        <b>
+          {job.status === "running"
+            ? "Creating in background"
+            : job.status === "ready"
+              ? "Content ready for review"
+              : "Creative job needs attention"}
+        </b>
+        <small>
+          {job.warning || job.error || job.title}
+          {running > 1 ? ` · ${running} jobs running` : ""}
+        </small>
+      </div>
+      {job.status === "running" && (
+        <span className="jobProgress">
+          <i />
+        </span>
+      )}
+      {job.status === "ready" && <button onClick={review}>Review</button>}
+      {job.status !== "running" && (
+        <button className="jobDismiss" onClick={() => dismiss(job.id)}>
+          <I.X />
+        </button>
+      )}
+    </div>
+  );
+}
+DistributionPanel = DistributionPanelV2;
+Calendar = CalendarV2;
+ImageComposer = ImageComposerBackend;
+Production = ProductionV2;
+Assets = AssetsV2;
+export default App;
