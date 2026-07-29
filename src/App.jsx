@@ -16,6 +16,7 @@ import "./workflow.css";
 import "./facebook.css";
 import "./placements.css";
 import "./storage.css";
+import "./publisher.css";
 // Client persistence is unavailable during the server-rendering pass.
 // A no-op server shim keeps the initial render deterministic; the browser
 // immediately uses its native localStorage implementation during hydration.
@@ -634,12 +635,8 @@ const initial = {
   rejected: [],
 };
 const nav = [
-  ["Dashboard", I.LayoutDashboard],
-  ["Ideas", I.Lightbulb],
-  ["Production", I.Columns3],
   ["Calendar", I.CalendarDays],
-  ["Asset Library", I.Images],
-  ["Templates", I.LayoutTemplate],
+  ["Content Library", I.Images],
   ["Settings", I.Settings2],
 ];
 const mediaReferenceCache = typeof globalThis !== "undefined" ? (globalThis.__scsMediaKeys ||= new Map()) : new Map();
@@ -780,7 +777,7 @@ function App() {
       typeof location !== "undefined" &&
       /(?:instagram|facebook)=/.test(location.search)
         ? "Settings"
-        : "Ideas",
+        : "Calendar",
     ),
     [jobs, setJobs] = useState(() => {
       try {
@@ -913,11 +910,6 @@ function App() {
             >
               <C size={18} />
               {n}
-              {n === "Ideas" && (
-                <em>
-                  {data.ideas.filter((x) => x.status === "review").length}
-                </em>
-              )}
             </button>
           ))}
         </nav>
@@ -933,34 +925,14 @@ function App() {
       </aside>
       <main>
         <Header page={page} setPage={setPage} />
-        {page === "Ideas" ? (
-          <Ideas
-            data={data}
-            setData={setData}
-            approve={approve}
-            refine={setDrawer}
-            reject={setReject}
-            notify={notify}
-          />
-        ) : page === "Dashboard" ? (
-          <Dashboard data={data} setPage={setPage} />
-        ) : page === "Production" ? (
-          <Production data={data} setData={setData} notify={notify} />
-        ) : page === "Calendar" ? (
+        {page === "Calendar" ? (
           <Calendar data={data} setData={setData} notify={notify} />
-        ) : page === "Asset Library" ? (
+        ) : page === "Content Library" ? (
           <Assets data={data} setData={setData} />
-        ) : page === "Templates" ? (
-          <Templates />
         ) : (
           <SettingsV2 data={data} setData={setData} notify={notify} />
         )}
       </main>
-      <JobCenter
-        jobs={jobs}
-        openProduction={() => setPage("Production")}
-        dismiss={(id) => setJobs((js) => js.filter((x) => x.id !== id))}
-      />
       {drawer && (
         <Refine
           idea={drawer}
@@ -1214,27 +1186,26 @@ function useResumeGeneration(data, setData, jobs, setJobs, ready) {
   }, [ready]);
 }
 function Header({ page, setPage }) {
+  const descriptions = {
+    Calendar: "Upload finished content, write the right copy and plan every publishing time.",
+    "Content Library": "Keep finished images and videos ready for future publishing.",
+    Settings: "Manage publishing accounts and writing preferences.",
+  };
+  const addContent = () => {
+    setPage("Calendar");
+    setTimeout(() => window.dispatchEvent(new CustomEvent("scs-new-publish")), 60);
+  };
   return (
     <header>
       <div>
-        <small>CONTENT WORKSPACE</small>
+        <small>PUBLISHING WORKSPACE</small>
         <h1>{page}</h1>
-        <p>
-          {page === "Ideas"
-            ? "Generate, refine and approve your next best content ideas."
-            : "Keep every piece of content moving forward."}
-        </p>
+        <p>{descriptions[page]}</p>
       </div>
       <div className="headBtns">
-        <button className="icon">
-          <I.Search size={18} />
-        </button>
-        <button className="icon">
-          <I.Bell size={18} />
-        </button>
-        <button className="primary" onClick={() => setPage("Ideas")}>
-          <I.Sparkles size={17} />
-          Generate ideas
+        <button className="primary" onClick={addContent}>
+          <I.Upload size={17} />
+          Upload & schedule
         </button>
       </div>
     </header>
@@ -2365,6 +2336,18 @@ function SettingsV2({ data, setData, notify }) {
             )}
           </article>
           <FacebookConnection notify={notify} />
+          {[
+            ["TikTok", "Video posts and stories"],
+            ["Pinterest", "Standard Pins and video Pins"],
+            ["YouTube", "Shorts and long-form videos"],
+          ].map(([name, purpose]) => (
+            <FutureConnectionCard
+              key={name}
+              name={name}
+              purpose={purpose}
+              notify={notify}
+            />
+          ))}
           <div className="publishingNotice">
             <I.Info />
             <div>
@@ -2379,6 +2362,33 @@ function SettingsV2({ data, setData, notify }) {
         </section>
       )}
     </div>
+  );
+}
+function FutureConnectionCard({ name, purpose, notify }) {
+  return (
+    <article className="connectionCard futureConnection">
+      <div className="connectionBrand">
+        <PlatformMark name={name} />
+        <div>
+          <h3>{name}</h3>
+          <p>{purpose}. Planning and export are available now.</p>
+        </div>
+        <span className="connectionStatus setup">Integration needed</span>
+      </div>
+      <div className="connectPrompt compactConnect">
+        <p>
+          You can schedule the content, copy and timing now. Direct publishing
+          will become available after this channel’s OAuth app is configured.
+        </p>
+        <button
+          onClick={() =>
+            notify(`${name} publishing setup is the next integration step`)
+          }
+        >
+          View setup status
+        </button>
+      </div>
+    </article>
   );
 }
 function FacebookConnection({ notify }) {
@@ -5079,10 +5089,12 @@ const publishPlatforms = [
   "Instagram Reel",
   "Facebook Feed",
   "Facebook Story",
-  "LinkedIn",
+  "Facebook Reel",
   "TikTok",
-  "X",
+  "Pinterest Pin",
+  "Pinterest Video Pin",
   "YouTube Shorts",
+  "YouTube Video",
 ];
 const platformSpecs = {
   "Instagram Feed": {
@@ -5121,7 +5133,12 @@ const platformSpecs = {
     label: "Page story · 9:16",
     publishable: false,
   },
-  LinkedIn: { w: 1200, h: 1500, label: "Feed · 4:5 portrait" },
+  "Facebook Reel": {
+    w: 1080,
+    h: 1920,
+    label: "Page reel · 9:16",
+    publishable: false,
+  },
   Facebook: {
     w: 1080,
     h: 1350,
@@ -5129,8 +5146,10 @@ const platformSpecs = {
     publishable: true,
   },
   TikTok: { w: 1080, h: 1920, label: "Video feed · 9:16" },
-  X: { w: 1600, h: 900, label: "Feed · 16:9 landscape" },
+  "Pinterest Pin": { w: 1000, h: 1500, label: "Standard Pin · 2:3" },
+  "Pinterest Video Pin": { w: 1080, h: 1920, label: "Video Pin · 9:16" },
   "YouTube Shorts": { w: 1080, h: 1920, label: "Short · 9:16" },
+  "YouTube Video": { w: 1920, h: 1080, label: "Video · 16:9" },
 };
 function platformSpec(name) {
   return platformSpecs[name] || platformSpecs["Instagram Feed"];
@@ -5157,8 +5176,8 @@ function platformOutput(src, spec) {
   });
 }
 function defaultPlatformCopy(platform, idea) {
-  let linked = platform === "LinkedIn",
-    short = platform === "X",
+  let linked = false,
+    short = false,
     s = platformSpec(platform),
     narrative =
       idea?.narrativeBrief ||
@@ -5175,6 +5194,10 @@ function defaultPlatformCopy(platform, idea) {
       ? "#AI #CreativeOps #Ecommerce"
       : platform === "TikTok"
         ? "#AIContent #ProductTok #Ecommerce"
+        : platform.startsWith("Pinterest")
+          ? "#ProductInspiration #Ecommerce #BrandDesign"
+          : platform.startsWith("YouTube")
+            ? "#ProductLaunch #BrandStory"
         : "#AIContent #ProductPhotography #ContentCreation",
     firstComment: "",
     link: "",
@@ -5452,14 +5475,12 @@ function PlatformMark({ name }) {
   let l = name?.toLowerCase() || "";
   return (
     <span
-      className={`platformMark ${l.includes("instagram") ? "ig" : l.includes("linkedin") ? "li" : l === "x" ? "xx" : l.includes("tiktok") ? "tt" : l.includes("youtube") ? "yt" : "fb"}`}
+      className={`platformMark ${l.includes("instagram") ? "ig" : l.includes("pinterest") ? "pin" : l.includes("tiktok") ? "tt" : l.includes("youtube") ? "yt" : "fb"}`}
     >
       {l.includes("instagram")
         ? "IG"
-        : l.includes("linkedin")
-          ? "in"
-          : l === "x"
-            ? "X"
+        : l.includes("pinterest")
+          ? "P"
             : l.includes("tiktok")
               ? "TT"
               : l.includes("youtube")
@@ -5539,13 +5560,271 @@ function addDays(d, n) {
   x.setDate(x.getDate() + n);
   return x;
 }
+const publishingTimes = {
+  "Instagram Feed": "Tue–Thu · 09:00–11:00",
+  "Instagram Story": "Mon–Fri · 11:00–13:00",
+  "Instagram Reel": "Tue–Thu · 18:00–21:00",
+  "Facebook Feed": "Tue–Thu · 09:00–13:00",
+  "Facebook Story": "Mon–Fri · 12:00–15:00",
+  "Facebook Reel": "Wed–Sun · 18:00–21:00",
+  TikTok: "Tue–Thu · 17:00–21:00",
+  "Pinterest Pin": "Fri–Sun · 20:00–23:00",
+  "Pinterest Video Pin": "Fri–Sun · 20:00–23:00",
+  "YouTube Shorts": "Thu–Sun · 15:00–18:00",
+  "YouTube Video": "Thu–Sun · 15:00–18:00",
+};
+function publishingCopy(platform, title) {
+  if (platform.startsWith("Instagram"))
+    return {
+      caption: `${title}\n\nA closer look at the details, context and story behind this release. Save this for later and tell us what stands out first.`,
+      hashtags: "#ProductStory #BrandContent #NewRelease",
+    };
+  if (platform.startsWith("Facebook"))
+    return {
+      caption: `${title}\n\nExplore the details, see it in context and let us know what you think in the comments.`,
+      hashtags: "#NewRelease #ProductStory",
+    };
+  if (platform === "TikTok")
+    return {
+      caption: `POV: ${title.toLowerCase()} gets the reveal it deserves ✨`,
+      hashtags: "#ProductTok #BehindTheScenes #BrandStory",
+    };
+  if (platform.startsWith("Pinterest"))
+    return {
+      caption: `${title} — a clean, considered visual worth saving for later.`,
+      hashtags: "#ProductInspiration #DesignIdeas #BrandStyle",
+    };
+  return {
+    caption: `${title}\n\nA quick look at the details and story behind this release.`,
+    hashtags: "#ProductLaunch #BrandStory",
+  };
+}
+function FinishedContentPlanner({ close, data, save, notify }) {
+  const [title, setTitle] = useState(""),
+    [campaign, setCampaign] = useState(""),
+    [media, setMedia] = useState([]),
+    [selected, setSelected] = useState(["Instagram Feed"]),
+    [active, setActive] = useState("Instagram Feed"),
+    [versions, setVersions] = useState(() => ({
+      "Instagram Feed": {
+        ...publishingCopy("Instagram Feed", "New content"),
+        cta: data.brand?.cta || "Learn more",
+        link: "",
+        date: "",
+        time: "10:00",
+        status: "Draft",
+      },
+    })),
+    [busy, setBusy] = useState(false);
+  const toggle = (platform) => {
+    if (selected.includes(platform)) {
+      if (selected.length === 1)
+        return notify("Keep at least one publishing destination");
+      let next = selected.filter((x) => x !== platform);
+      setSelected(next);
+      if (active === platform) setActive(next[0]);
+    } else {
+      let copy = publishingCopy(platform, title || "New content");
+      setSelected([...selected, platform]);
+      setVersions({
+        ...versions,
+        [platform]: {
+          ...copy,
+          cta: data.brand?.cta || "Learn more",
+          link: "",
+          date: "",
+          time: platform.includes("Pinterest") ? "20:30" : "10:00",
+          status: "Draft",
+        },
+      });
+      setActive(platform);
+    }
+  };
+  const setVersion = (key, value) =>
+    setVersions((current) => ({
+      ...current,
+      [active]: { ...current[active], [key]: value },
+    }));
+  const addFiles = async (files) => {
+    let accepted = [...files].filter(
+      (file) =>
+        file.type.startsWith("image/") || file.type.startsWith("video/"),
+    );
+    if (!accepted.length)
+      return notify("Choose finished image or video files");
+    setBusy(true);
+    try {
+      let next = [];
+      for (let file of accepted) {
+        if (file.size > 25_000_000)
+          throw new Error(`${file.name} is larger than 25 MB`);
+        next.push({
+          id: `upload-${Date.now()}-${next.length}`,
+          name: file.name,
+          type: file.type,
+          src: file.type.startsWith("image/")
+            ? await optimizedJpegData(file)
+            : await fileData(file),
+        });
+      }
+      setMedia((current) => [...current, ...next]);
+    } catch (error) {
+      notify(error.message || "Upload failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const adapt = () => {
+    let copy = publishingCopy(active, title || "New content");
+    setVersions((current) => ({
+      ...current,
+      [active]: { ...current[active], ...copy },
+    }));
+    notify(`Copy adapted for ${active}`);
+  };
+  const submit = (scheduled) => {
+    if (!title.trim()) return notify("Add an internal content title");
+    if (!media.length) return notify("Upload at least one finished file");
+    if (
+      scheduled &&
+      selected.some((platform) => {
+        let version = versions[platform];
+        return !version?.date || !version?.time;
+      })
+    )
+      return notify("Choose a publishing date and time for every destination");
+    let id = `uploaded-${Date.now()}`,
+      complete = {};
+    selected.forEach((platform) => {
+      let spec = platformSpec(platform),
+        version = versions[platform] || {
+          ...publishingCopy(platform, title),
+          date: "",
+          time: "10:00",
+        };
+      complete[platform] = {
+        ...version,
+        placement: platform,
+        dimensions: `${spec.w} × ${spec.h}`,
+        status: scheduled ? "Scheduled" : "Draft",
+      };
+    });
+    save({
+      idea: {
+        id: `idea-${id}`,
+        title,
+        message: complete[selected[0]].caption,
+        hook: title,
+        status: "approved",
+        platforms: selected,
+        destinations: selected,
+        format: media.length > 1 ? "Carousel" : "Finished content",
+        revisions: [],
+      },
+      production: {
+        id,
+        ideaId: `idea-${id}`,
+        title,
+        campaign: campaign || "Uploaded content",
+        format: media.length > 1 ? "Carousel" : media[0].type.startsWith("video/") ? "Video" : "Single image",
+        platforms: selected,
+        destinations: selected,
+        versions: complete,
+        carouselImages: media,
+        rendered: media[0].src,
+        materials: 100,
+        status: scheduled ? "Ready to Publish" : "Ready for Review",
+        date: scheduled ? complete[selected[0]].date : "",
+      },
+      assets: media.map((asset) => ({
+        ...asset,
+        tags: ["Finished content", campaign || "Uploaded"],
+      })),
+    });
+  };
+  let version = versions[active];
+  return (
+    <div className="modalback finishedPlannerBack" onMouseDown={(e) => e.target === e.currentTarget && close()}>
+      <div className="finishedPlanner">
+        <div className="plannerHead">
+          <div>
+            <small>NEW PUBLISHING PLAN</small>
+            <h2>Upload once. Plan every channel.</h2>
+            <p>Bring finished content from outside the tool, then adapt its copy and timing.</p>
+          </div>
+          <button className="icon" onClick={close}><I.X /></button>
+        </div>
+        <div className="plannerBody">
+          <section>
+            <label className="finishedDrop" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); addFiles(e.dataTransfer.files); }}>
+              {busy ? <I.LoaderCircle className="spin" /> : <I.UploadCloud />}
+              <b>{busy ? "Preparing files…" : "Drop finished images or videos"}</b>
+              <span>Select multiple files for a carousel · 25 MB maximum per file</span>
+              <input type="file" multiple accept="image/*,video/*" onChange={(e) => addFiles(e.target.files)} />
+            </label>
+            {!!media.length && <div className="finishedFiles">{media.map((asset, index) => (
+              <article key={asset.id}>
+                {asset.type.startsWith("image/") ? <img src={asset.src} /> : <I.PlayCircle />}
+                <span><b>{asset.name}</b><small>{asset.type}</small></span>
+                <button onClick={() => setMedia(media.filter((_, i) => i !== index))}><I.X size={14} /></button>
+              </article>
+            ))}</div>}
+            <div className="plannerFields">
+              <label>Internal title<input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Summer product reveal" /></label>
+              <label>Campaign<input value={campaign} onChange={(e) => setCampaign(e.target.value)} placeholder="Optional campaign name" /></label>
+            </div>
+            <div className="plannerSectionHead"><div><h3>Publishing destinations</h3><p>Each placement receives its own copy, dimensions and time.</p></div></div>
+            <div className="plannerPlatforms">{publishPlatforms.map((platform) => (
+              <button key={platform} className={selected.includes(platform) ? "selected" : ""} onClick={() => toggle(platform)}>
+                <PlatformMark name={platform} />{platform}{selected.includes(platform) && <I.Check size={13} />}
+              </button>
+            ))}</div>
+            <div className="plannerEditor">
+              <aside>{selected.map((platform) => (
+                <button key={platform} className={active === platform ? "on" : ""} onClick={() => setActive(platform)}>
+                  <PlatformMark name={platform} /><span>{platform}<small>{platformSpec(platform).w} × {platformSpec(platform).h}</small></span>
+                </button>
+              ))}</aside>
+              <section>
+                <div className="copyHead"><div><h3>{active}</h3><p>{platformSpec(active).label}</p></div><button onClick={adapt}><I.WandSparkles size={15} />Help me write it</button></div>
+                <label>Caption / description<textarea value={version?.caption || ""} onChange={(e) => setVersion("caption", e.target.value)} /></label>
+                <label>Hashtags / tags<input value={version?.hashtags || ""} onChange={(e) => setVersion("hashtags", e.target.value)} /></label>
+                <div className="plannerFields">
+                  <label>CTA<input value={version?.cta || ""} onChange={(e) => setVersion("cta", e.target.value)} /></label>
+                  <label>Link<input value={version?.link || ""} onChange={(e) => setVersion("link", e.target.value)} placeholder="https://" /></label>
+                  <label>Date<input type="date" value={version?.date || ""} onChange={(e) => setVersion("date", e.target.value)} /></label>
+                  <label>Time<input type="time" value={version?.time || ""} onChange={(e) => setVersion("time", e.target.value)} /><small>Suggested: {publishingTimes[active]}</small></label>
+                </div>
+              </section>
+            </div>
+          </section>
+          <aside className="plannerSummary">
+            <h3>Plan summary</h3>
+            <span><I.Files size={15} />{media.length} finished file{media.length === 1 ? "" : "s"}</span>
+            <span><I.Share2 size={15} />{selected.length} destination{selected.length === 1 ? "" : "s"}</span>
+            <span><I.CalendarClock size={15} />{selected.filter((platform) => versions[platform]?.date).length} times planned</span>
+            <div className="timingHint"><I.Sparkles /><b>Timing guidance</b><p>Recommendations are a starting point. Refine them later using each account’s own audience insights.</p></div>
+            <button onClick={() => submit(false)}>Save as draft</button>
+            <button className="primary" onClick={() => submit(true)}><I.CalendarPlus size={16} />Add to calendar</button>
+          </aside>
+        </div>
+      </div>
+    </div>
+  );
+}
 function CalendarV2({ data, setData, notify }) {
   const [view, setView] = useState("Month"),
     [cursor, setCursor] = useState(new Date()),
     [platform, setPlatform] = useState("All"),
     [status, setStatus] = useState("All"),
     [selected, setSelected] = useState(null),
-    [showQueue, setShowQueue] = useState(true);
+    [showQueue, setShowQueue] = useState(true),
+    [showPlanner, setShowPlanner] = useState(false);
+  useEffect(() => {
+    let open = () => setShowPlanner(true);
+    window.addEventListener("scs-new-publish", open);
+    return () => window.removeEventListener("scs-new-publish", open);
+  }, []);
   let items = calendarItems(data),
     filtered = items.filter(
       (x) =>
@@ -5682,6 +5961,10 @@ function CalendarV2({ data, setData, notify }) {
           </button>
         </div>
         <div className="calFilters">
+          <button className="uploadSchedule" onClick={() => setShowPlanner(true)}>
+            <I.Upload size={16} />
+            Upload & schedule
+          </button>
           <select
             value={platform}
             onChange={(e) => setPlatform(e.target.value)}
@@ -5778,6 +6061,27 @@ function CalendarV2({ data, setData, notify }) {
           }}
           remove={() => removeFromCalendar(selected)}
           notify={notify}
+        />
+      )}
+      {showPlanner && (
+        <FinishedContentPlanner
+          data={data}
+          close={() => setShowPlanner(false)}
+          notify={notify}
+          save={({ idea, production, assets }) => {
+            setData((current) => ({
+              ...current,
+              ideas: [...(current.ideas || []), idea],
+              production: [...(current.production || []), production],
+              assets: mergeAssetLists([...(current.assets || []), ...assets], []),
+            }));
+            setShowPlanner(false);
+            notify(
+              production.status === "Ready to Publish"
+                ? "Content added to the publishing calendar"
+                : "Content saved as an unscheduled draft",
+            );
+          }}
         />
       )}
     </div>
@@ -5994,209 +6298,3 @@ function PublishDetail({ entry, close, update, remove, notify }) {
       setBusy(false);
     }
   };
-  return (
-    <div className="modalback publishBack">
-      <div className="publishDetail">
-        <div className="publishHead">
-          <div>
-            <PlatformMark name={entry.platform} />
-            <div>
-              <small>PUBLISHING DETAILS</small>
-              <h2>{entry.title}</h2>
-              <p>
-                {entry.platform} · {entry.date} at {entry.time}
-              </p>
-            </div>
-          </div>
-          <button className="icon" onClick={close}>
-            <I.X />
-          </button>
-        </div>
-        <div className="publishContent">
-          <div className="publishVisual">
-            {media.length ? (
-              <div
-                className={`publishMediaGrid ${media.length === 1 ? "single" : ""}`}
-              >
-                {media.map((src, i) => (
-                  <figure key={i}>
-                    <img src={src} />
-                    {media.length > 1 && <span>{i + 1}</span>}
-                  </figure>
-                ))}
-              </div>
-            ) : (
-              <div>
-                <I.Image />
-                <p>No rendered asset yet</p>
-              </div>
-            )}
-            <button onClick={download}>
-              <I.Download size={16} />
-              Download {media.length > 1 ? "carousel" : "image"}
-            </button>
-          </div>
-          <section>
-            <div className="publishStatus">
-              <span className={`statusPill ${entry.status.toLowerCase()}`}>
-                {entry.status}
-              </span>
-              {media.length > 1 && <small>{media.length}-slide carousel</small>}
-              {entry.status === "Published" && (
-                <small>
-                  {entry.facebookPostId
-                    ? "Published to Facebook"
-                    : entry.instagramMediaId
-                      ? "Published to Instagram"
-                    : "Published manually"}
-                </small>
-              )}
-            </div>
-            {entry.narrativeBrief && (
-              <div className="publishNarrative">
-                <small>SMMA STORY INTENT</small>
-                <b>{entry.narrativeBrief.audienceMoment}</b>
-                <span>→ {entry.narrativeBrief.turningPoint}</span>
-                <span>→ {entry.narrativeBrief.payoff}</span>
-              </div>
-            )}
-            <label>
-              Caption
-              <textarea
-                value={entry.caption}
-                onChange={(e) => update({ caption: e.target.value })}
-              />
-            </label>
-            <label>
-              Hashtags
-              <input
-                value={entry.hashtags}
-                onChange={(e) => update({ hashtags: e.target.value })}
-              />
-            </label>
-            <div className="publishMeta">
-              <label>
-                Date
-                <input
-                  type="date"
-                  value={entry.date}
-                  onChange={(e) => update({ date: e.target.value })}
-                />
-              </label>
-              <label>
-                Time
-                <input
-                  type="time"
-                  value={entry.time}
-                  onChange={(e) => update({ time: e.target.value })}
-                />
-              </label>
-            </div>
-            {error && <p className="renderError">{error}</p>}
-            <div className="publishActions">
-              <button onClick={copy}>
-                <I.Copy size={15} />
-                Copy post text
-              </button>
-              {entry.permalink && (
-                <a href={entry.permalink} target="_blank" rel="noreferrer">
-                  View published post
-                </a>
-              )}
-              {entry.status !== "Published" &&
-                (directPublish ? (
-                  <button
-                    className="primary"
-                    onClick={publishNow}
-                    disabled={busy}
-                  >
-                    {busy ? (
-                      <>
-                        <I.LoaderCircle className="spin" />
-                        Publishing…
-                      </>
-                    ) : (
-                      <>
-                        <I.Send size={16} />
-                        Publish to {isFacebook ? "Facebook" : "Instagram"}
-                      </>
-                    )}
-                  </button>
-                ) : (
-                  <button className="primary" onClick={mark}>
-                    <I.CheckCircle2 size={16} />
-                    Mark as published
-                  </button>
-                ))}
-              <button className="removeCalendar" onClick={remove}><I.Trash2 size={15}/>Remove from calendar</button>
-            </div>
-            <p className="integrationNote">
-              <I.Info size={14} />
-              {placementNote}
-            </p>
-          </section>
-        </div>
-      </div>
-    </div>
-  );
-}
-function JobCenter({ jobs, openProduction, dismiss }) {
-  if (!jobs.length) return null;
-  let job = jobs[0],
-    running = jobs.filter((x) => x.status === "running").length,
-    review = () => {
-      openProduction();
-      setTimeout(
-        () =>
-          window.dispatchEvent(
-            new CustomEvent("scs-open-production", {
-              detail: { id: job.productionId },
-            }),
-          ),
-        80,
-      );
-    };
-  return (
-    <div className={`jobCenter jobBar ${job.status}`}>
-      <span className="jobState">
-        {job.status === "running" ? (
-          <I.LoaderCircle className="spin" />
-        ) : job.status === "ready" ? (
-          <I.CheckCircle2 />
-        ) : (
-          <I.CircleAlert />
-        )}
-      </span>
-      <div className="jobBarCopy">
-        <b>
-          {job.status === "running"
-            ? "Creating in background"
-            : job.status === "ready"
-              ? "Content ready for review"
-              : "Creative job needs attention"}
-        </b>
-        <small>
-          {job.warning || job.error || job.title}
-          {running > 1 ? ` · ${running} jobs running` : ""}
-        </small>
-      </div>
-      {job.status === "running" && (
-        <span className="jobProgress">
-          <i />
-        </span>
-      )}
-      {job.status === "ready" && <button onClick={review}>Review</button>}
-      {job.status !== "running" && (
-        <button className="jobDismiss" onClick={() => dismiss(job.id)}>
-          <I.X />
-        </button>
-      )}
-    </div>
-  );
-}
-DistributionPanel = DistributionPanelV2;
-Calendar = CalendarV2;
-ImageComposer = ImageComposerBackend;
-Production = ProductionV2;
-Assets = AssetsV2;
-export default App;
