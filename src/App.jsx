@@ -775,7 +775,7 @@ function App() {
     [storageState, setStorageState] = useState({ status: "opening", message: "Opening workspace…" }),
     [page, setPage] = useState(() =>
       typeof location !== "undefined" &&
-      /(?:instagram|facebook)=/.test(location.search)
+      /(?:instagram|facebook|pinterest|tiktok|youtube)=/.test(location.search)
         ? "Settings"
         : "Calendar",
     ),
@@ -2184,7 +2184,13 @@ function SettingsV2({ data, setData, notify }) {
                 calendar.
               </p>
             </div>
-            <button onClick={refresh} disabled={state.loading}>
+            <button
+              onClick={() => {
+                refresh();
+                window.dispatchEvent(new CustomEvent("scs-refresh-connections"));
+              }}
+              disabled={state.loading}
+            >
               <I.RefreshCw className={state.loading ? "spin" : ""} size={16} />
               Refresh
             </button>
@@ -2336,26 +2342,23 @@ function SettingsV2({ data, setData, notify }) {
             )}
           </article>
           <FacebookConnection notify={notify} />
-          {[
-            ["TikTok", "Video posts and stories"],
-            ["Pinterest", "Standard Pins and video Pins"],
-            ["YouTube", "Shorts and long-form videos"],
-          ].map(([name, purpose]) => (
-            <FutureConnectionCard
-              key={name}
-              name={name}
-              purpose={purpose}
+          {connectionProviders.map((provider) => (
+            <OAuthConnection
+              key={provider.id}
+              provider={provider}
               notify={notify}
             />
           ))}
           <div className="publishingNotice">
             <I.Info />
             <div>
-              <b>Account requirement</b>
+              <b>Platform approval is separate from connection</b>
               <p>
-                Instagram direct publishing is available for professional
-                Business or Creator accounts. Personal accounts need to be
-                converted in Instagram first.
+                A successful sign-in proves the account connection. Pinterest
+                and TikTok still require their publishing products and app
+                review; YouTube requires the YouTube Data API and OAuth consent
+                screen. The setup card shows the exact callback and environment
+                variables for each channel.
               </p>
             </div>
           </div>
@@ -2364,30 +2367,286 @@ function SettingsV2({ data, setData, notify }) {
     </div>
   );
 }
-function FutureConnectionCard({ name, purpose, notify }) {
+const connectionProviders = [
+  {
+    id: "pinterest",
+    name: "Pinterest",
+    purpose: "Publish standard Pins and video Pins to selected boards.",
+    accountLabel: "PINTEREST ACCOUNT",
+    permissions: ["Profile access", "Pin publishing", "Token refresh"],
+    setup: [
+      "Create a Pinterest developer app and request the API access level needed for publishing.",
+      "Add the environment variables shown below to Vercel Production and Preview.",
+      "Register the exact callback URL below in the Pinterest app.",
+    ],
+    review:
+      "The app needs Pinterest access for user_accounts:read, boards:read, pins:read and pins:write.",
+  },
+  {
+    id: "tiktok",
+    name: "TikTok",
+    purpose: "Publish videos or photo posts to a creator account.",
+    accountLabel: "TIKTOK CREATOR",
+    permissions: ["Creator profile", "Content posting", "Token refresh"],
+    setup: [
+      "Create a TikTok developer app and add Login Kit plus the Content Posting API.",
+      "Add the environment variables shown below to Vercel Production and Preview.",
+      "Register the exact callback URL below in Login Kit and request video.publish approval.",
+    ],
+    review:
+      "TikTok allows private test posts before audit. Public direct posting requires approval for video.publish and a Content Posting API audit.",
+  },
+  {
+    id: "youtube",
+    name: "YouTube",
+    purpose: "Upload Shorts and long-form videos to a YouTube channel.",
+    accountLabel: "YOUTUBE CHANNEL",
+    permissions: ["Channel access", "Video uploads", "Offline refresh"],
+    setup: [
+      "Create a Google Cloud project, enable YouTube Data API v3 and configure the OAuth consent screen.",
+      "Create a Web application OAuth client and add the environment variables below to Vercel.",
+      "Register the exact callback URL below as an Authorized redirect URI.",
+    ],
+    review:
+      "Keep the OAuth app in Testing while connecting test users. Publishing for external users may require Google verification.",
+  },
+];
+function OAuthConnection({ provider, notify }) {
+  const [state, setState] = useState({
+      loading: true,
+      configured: false,
+      connected: false,
+    }),
+    [disconnecting, setDisconnecting] = useState(false);
+  const refresh = async () => {
+    setState((current) => ({ ...current, loading: true }));
+    try {
+      let response = await fetch(
+          `/api/${provider.id}/account?action=status`,
+          { credentials: "include" },
+        ),
+        body = await response.json();
+      if (!response.ok)
+        throw new Error(body.error || `${provider.name} status failed`);
+      setState({ ...body, loading: false });
+    } catch (error) {
+      setState({
+        loading: false,
+        configured: false,
+        connected: false,
+        error: error.message || `${provider.name} service is unavailable.`,
+      });
+    }
+  };
+  useEffect(() => {
+    refresh();
+    let query = new URLSearchParams(location.search),
+      result = query.get(provider.id),
+      reason = query.get("reason");
+    if (result) {
+      notify(
+        result === "connected"
+          ? `${provider.name} connected successfully`
+          : `${provider.name} connection failed${reason ? ` at ${reason.replaceAll("_", " ")}` : ""}`,
+      );
+      history.replaceState({}, "", location.pathname);
+    }
+    let onRefresh = () => refresh();
+    window.addEventListener("scs-refresh-connections", onRefresh);
+    return () =>
+      window.removeEventListener("scs-refresh-connections", onRefresh);
+  }, []);
+  const test = async () => {
+    try {
+      let response = await fetch(
+          `/api/${provider.id}/account?action=test`,
+          { credentials: "include" },
+        ),
+        body = await response.json();
+      if (!response.ok)
+        throw new Error(body.error || `${provider.name} connection test failed`);
+      notify(`${provider.name} connection verified for ${body.name}`);
+      await refresh();
+    } catch (error) {
+      notify(error.message);
+    }
+  };
+  const disconnect = async () => {
+    if (
+      !confirm(
+        `Disconnect ${provider.name}? Scheduled content will stay in the calendar.`,
+      )
+    )
+      return;
+    setDisconnecting(true);
+    try {
+      let response = await fetch(
+        `/api/${provider.id}/account?action=disconnect`,
+        { method: "POST", credentials: "include" },
+      );
+      if (!response.ok) throw new Error();
+      await refresh();
+      notify(`${provider.name} disconnected`);
+    } catch {
+      notify(`Could not disconnect ${provider.name}`);
+    } finally {
+      setDisconnecting(false);
+    }
+  };
+  let accountName =
+    state.account?.username || state.account?.name || provider.name;
   return (
-    <article className="connectionCard futureConnection">
+    <article className={`connectionCard providerConnection ${provider.id}`}>
       <div className="connectionBrand">
-        <PlatformMark name={name} />
+        <span className="integrationBadge">
+          <PlatformMark name={provider.name} />
+        </span>
         <div>
-          <h3>{name}</h3>
-          <p>{purpose}. Planning and export are available now.</p>
+          <h3>{provider.name}</h3>
+          <p>{provider.purpose}</p>
         </div>
-        <span className="connectionStatus setup">Integration needed</span>
-      </div>
-      <div className="connectPrompt compactConnect">
-        <p>
-          You can schedule the content, copy and timing now. Direct publishing
-          will become available after this channel’s OAuth app is configured.
-        </p>
-        <button
-          onClick={() =>
-            notify(`${name} publishing setup is the next integration step`)
-          }
+        <span
+          className={`connectionStatus ${state.connected ? "connected" : state.configured ? "ready" : "setup"}`}
         >
-          View setup status
-        </button>
+          {state.loading
+            ? "Checking…"
+            : state.connected
+              ? "Connected"
+              : state.configured
+                ? "Ready to connect"
+                : "Setup required"}
+        </span>
       </div>
+      {state.loading ? (
+        <div className="connectionLoading">
+          <I.LoaderCircle className="spin" />
+          Checking {provider.name} connection…
+        </div>
+      ) : state.connected ? (
+        <div className="connectedAccount">
+          <div className="profileRow">
+            {state.account?.picture ? (
+              <img src={state.account.picture} />
+            ) : (
+              <span className="profilePlaceholder">
+                <PlatformMark name={provider.name} />
+              </span>
+            )}
+            <div>
+              <small>{provider.accountLabel}</small>
+              <h3>{accountName}</h3>
+              <p>{state.account?.accountType || provider.name}</p>
+            </div>
+            <I.BadgeCheck className="verifiedConnection" />
+          </div>
+          <div className="permissionGrid">
+            {provider.permissions.map((permission) => (
+              <span key={permission}>
+                <I.CheckCircle2 />
+                {permission}
+              </span>
+            ))}
+          </div>
+          <p className="providerReviewNote">
+            <I.Info size={14} />
+            {provider.review}
+          </p>
+          <div className="connectionActions">
+            <button onClick={test}>Test connection</button>
+            <button
+              className="dangerOutline"
+              onClick={disconnect}
+              disabled={disconnecting}
+            >
+              {disconnecting ? "Disconnecting…" : "Disconnect"}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="connectPrompt">
+          <div className="oauthNote">
+            <I.ShieldCheck />
+            <div>
+              <b>Secure sign-in through {provider.name}</b>
+              <p>
+                Tokens are encrypted in an HttpOnly browser session. The app
+                never sees or stores the account password.
+              </p>
+            </div>
+          </div>
+          {state.error && <p className="connectionError">{state.error}</p>}
+          {state.lastError && (
+            <p className="connectionError">
+              <b>
+                Authorization failed at{" "}
+                {state.lastError.stage.replaceAll("_", " ")}.
+              </b>
+              <br />
+              {state.lastError.message}
+            </p>
+          )}
+          {state.sessionState === "unreadable" && (
+            <p className="connectionError">
+              The stored session can no longer be decrypted. Confirm that the
+              session secret was not changed, then reconnect.
+            </p>
+          )}
+          {state.configured ? (
+            <>
+              <a
+                className="primary connectInstagram"
+                href={`/api/${provider.id}/connect`}
+              >
+                <PlatformMark name={provider.name} />
+                Connect {provider.name}
+              </a>
+              <p className="providerReviewNote">
+                <I.Info size={14} />
+                {provider.review}
+              </p>
+            </>
+          ) : (
+            <div className="setupChecklist providerChecklist">
+              <h4>One-time {provider.name} setup</h4>
+              <ol>
+                {provider.setup.map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ol>
+              <span className="environmentLabel">Vercel environment variables</span>
+              <div className="environmentKeys">
+                {(state.requiredEnvironment || []).map((name) => (
+                  <code key={name}>{name}</code>
+                ))}
+              </div>
+              <label>
+                OAuth callback URL
+                <div>
+                  <code>
+                    {state.callbackUrl ||
+                      `${location.origin}/api/${provider.id}/callback`}
+                  </code>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(
+                        state.callbackUrl ||
+                          `${location.origin}/api/${provider.id}/callback`,
+                      );
+                      notify(`${provider.name} callback URL copied`);
+                    }}
+                  >
+                    <I.Copy size={15} />
+                  </button>
+                </div>
+              </label>
+              <p className="providerReviewNote">
+                <I.Info size={14} />
+                {provider.review}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
     </article>
   );
 }
@@ -2411,6 +2670,10 @@ function FacebookConnection({ notify }) {
       notify(result === "connected" ? "Facebook Page connected successfully" : "Facebook connection was not completed");
       history.replaceState({}, "", location.pathname);
     }
+    let onRefresh = () => refresh();
+    window.addEventListener("scs-refresh-connections", onRefresh);
+    return () =>
+      window.removeEventListener("scs-refresh-connections", onRefresh);
   }, []);
   const test = async () => {
     try {
