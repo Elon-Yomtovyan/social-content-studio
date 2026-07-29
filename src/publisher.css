@@ -136,12 +136,56 @@
 }
 
 .finishedFiles img,
+.finishedFiles video,
 .finishedFiles article > svg {
   width: 46px;
   height: 46px;
   border-radius: 8px;
   background: #eef2f8;
   object-fit: cover;
+}
+
+.finishedFiles video {
+  display: block;
+}
+
+.plannerPlatforms button:disabled,
+.destinationChips button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.previewSlide video,
+.publishMediaGrid video {
+  width: 100%;
+  height: 100%;
+  background: #111827;
+  object-fit: contain;
+}
+
+.previewSlide video {
+  position: absolute;
+  inset: 0;
+}
+
+.publishMediaGrid video {
+  max-height: 460px;
+  border-radius: 7px;
+}
+
+.assets article > div video {
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.assetPreview > video {
+  display: block;
+  max-width: 700px;
+  max-height: 70vh;
+  border-radius: 9px;
+  background: #111827;
 }
 
 .finishedFiles span,

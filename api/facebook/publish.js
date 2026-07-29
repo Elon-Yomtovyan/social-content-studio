@@ -22,13 +22,43 @@ async function createFeedPost(pageId, accessToken, message, photos) {
   photos.forEach((photo, i) => form.set(`attached_media[${i}]`, JSON.stringify({ media_fbid: photo.id })));
   return read(await fetch(graphUrl(`${pageId}/feed`), { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: form }));
 }
+async function publishVideo(pageId, accessToken, videoUrl, description) {
+  if (!/^https:\/\//i.test(videoUrl || "")) throw new Error("The finished video must be stored at a public HTTPS URL");
+  let form = new URLSearchParams({
+    file_url: videoUrl,
+    description: (description || "").slice(0, 63206),
+    published: "true",
+    access_token: accessToken,
+  });
+  return read(await fetch(graphUrl(`${pageId}/videos`), {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: form,
+  }));
+}
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   if (!sameOrigin(req)) return res.status(403).json({ error: "Origin not allowed" });
   let session = unseal(cookie(req, "scs_facebook"));
   if (!session?.accessToken || !session?.id) return res.status(401).json({ error: "Connect a Facebook Page in Settings first" });
   try {
-    let { image, images, caption } = req.body || {}, media = (Array.isArray(images) && images.length ? images : [image]).filter(Boolean).slice(0, 10);
+    let { image, images, media: mediaItems, video, caption, placement } = req.body || {},
+      videoUrl = video || mediaItems?.find?.((item) => String(item?.type || "").startsWith("video/"))?.src,
+      media = (Array.isArray(images) && images.length ? images : [image]).filter(Boolean).slice(0, 10);
+    if (videoUrl) {
+      if (placement !== "Facebook Feed") return res.status(400).json({ error: "Direct Facebook video publishing is currently available for Page Feed placements" });
+      let published = await publishVideo(session.id, session.accessToken, videoUrl, caption || "");
+      return res.status(200).json({
+        published: true,
+        postId: published.id,
+        mediaId: published.id,
+        pageName: session.name,
+        permalink: `https://www.facebook.com/${session.id}/videos/${published.id}`,
+        timestamp: new Date().toISOString(),
+        videoUrl,
+        video: true,
+      });
+    }
     if (!media.length) return res.status(400).json({ error: "Finished media is required" });
     let published;
     if (media.length === 1) published = await uploadPhoto(session.id, session.accessToken, media[0], 0, true, caption || "");

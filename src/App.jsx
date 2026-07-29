@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as I from "lucide-react";
 import { unzip } from "fflate";
+import { upload as uploadBlob } from "@vercel/blob/client";
 import "./enhanced.css";
 import "./ai.css";
 import "./backend.css";
@@ -679,7 +680,7 @@ function dataUrlBlob(src) {
   return new Blob([bytes], { type: header.match(/^data:([^;]+)/)?.[1] || "image/jpeg" });
 }
 async function externalizeMedia(value, blobs) {
-  if (typeof value === "string" && value.startsWith("data:image/")) {
+  if (typeof value === "string" && /^data:(?:image|video)\//.test(value)) {
     let key = mediaKey(value); if (!blobs.has(key)) blobs.set(key, dataUrlBlob(value)); return `idb-media://${key}`;
   }
   if (Array.isArray(value)) return Promise.all(value.map((item) => externalizeMedia(item, blobs)));
@@ -735,7 +736,7 @@ function cachedAssetIndex() {
 }
 const ASSET_CACHE = "social-content-studio-assets-v1";
 async function cacheAssetMedia(asset) {
-  if (!("caches" in globalThis) || !asset?.id || !asset?.src?.startsWith("data:image/")) return;
+  if (!("caches" in globalThis) || !asset?.id || !/^data:(?:image|video)\//.test(asset?.src || "")) return;
   let response = await fetch(asset.src), cache = await caches.open(ASSET_CACHE);
   await cache.put(`/__scs_asset/${encodeURIComponent(asset.id)}`, response);
 }
@@ -3651,7 +3652,9 @@ function AssetsV2({ data, setData }) {
     [importMessage, setImportMessage] = useState("");
   let assets = data.assets.map(normalizeAsset);
   const assetType = (name) =>
-    /logo/i.test(name)
+    /\.(?:mp4|webm|mov|m4v)$/i.test(name)
+      ? "Video"
+      : /logo/i.test(name)
       ? "Logo"
       : /screen|capture|ui/i.test(name)
         ? "Screenshot"
@@ -3660,19 +3663,33 @@ function AssetsV2({ data, setData }) {
           : /graphic|banner|brand/i.test(name)
             ? "Brand graphic"
             : "Product image";
-  const addImages = async (entries, fromZip = "") => {
+  const addAssets = async (entries, fromZip = "") => {
     let fresh = [];
     for (let entry of entries.slice(0, 50)) {
       let file = entry.file || entry;
-      if (!file.type.startsWith("image/")) continue;
+      if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) continue;
       let path = entry.path || file.name,
-        folder = path.includes("/") ? path.split("/").slice(0, -1).pop() : "";
+        folder = path.includes("/") ? path.split("/").slice(0, -1).pop() : "",
+        video = file.type.startsWith("video/"),
+        src;
+      if (video) {
+        if (file.size > 500_000_000) throw new Error(`${file.name} is larger than 500 MB`);
+        let safeName = file.name.replace(/[^a-z0-9._-]+/gi, "-"),
+          blob = await uploadBlob(`asset-videos/${Date.now()}-${safeName}`, file, {
+            access: "public",
+            handleUploadUrl: "/api/session?action=media-upload",
+            multipart: file.size > 100_000_000,
+          });
+        src = blob.url;
+      } else src = await optimizedFileData(file, 1200, 0.78);
       let asset = {
         id: "a" + Date.now() + fresh.length,
         name: file.name.replace(/\.[^.]+$/, ""),
-        type: assetType(path),
+        type: video ? "Video" : assetType(path),
         tags: [fromZip ? "ZIP import" : "Uploaded", folder].filter(Boolean),
-        src: await optimizedFileData(file, 1200, 0.78),
+        src,
+        mediaType: file.type,
+        size: file.size,
         created: Date.now(),
       };
       fresh.push(asset);
@@ -3693,16 +3710,17 @@ function AssetsV2({ data, setData }) {
       skipped = 0;
     try {
       for (let file of files) {
-        if (file.type.startsWith("image/")) count += await addImages([file]);
+        if (file.type.startsWith("image/") || file.type.startsWith("video/"))
+          count += await addAssets([file]);
         else if (/\.zip$/i.test(file.name) || /zip/i.test(file.type)) {
           let entries = await zipImageFiles(file);
-          count += await addImages(entries, file.name);
+          count += await addAssets(entries, file.name);
         } else skipped++;
       }
       setImportMessage(
         count
           ? `${count} optimized asset${count === 1 ? "" : "s"} imported${skipped ? " · unsupported files skipped" : ""}`
-          : "No supported images were found.",
+          : "No supported images or videos were found.",
       );
     } catch (e) {
       setImportMessage(`ZIP import failed: ${e.message}`);
@@ -3748,7 +3766,7 @@ function AssetsV2({ data, setData }) {
           {importing ? "Importing…" : "Upload assets or ZIP"}
           <input
             multiple
-            accept="image/*,.zip,application/zip"
+            accept="image/*,video/*,.zip,application/zip"
             type="file"
             onChange={(e) => upload([...e.target.files])}
           />
@@ -3772,10 +3790,10 @@ function AssetsV2({ data, setData }) {
       >
         <I.ArchiveRestore />
         <div>
-          <b>Drop images or a ZIP archive</b>
+          <b>Drop images, videos or a ZIP archive</b>
           <p>
-            Folders inside ZIP files become searchable tags. Supports PNG, JPG
-            and WEBP.
+            Direct uploads support PNG, JPG, WEBP, MP4, WebM, MOV and M4V.
+            ZIP imports remain image-only.
           </p>
           {importMessage && (
             <small
@@ -3802,7 +3820,13 @@ function AssetsV2({ data, setData }) {
           .map((a) => (
             <article key={a.id}>
               <div onClick={() => a.src && setPreview(a)}>
-                {a.src ? <img src={a.src} /> : <I.Image size={38} />}
+                {a.src ? (
+                  a.type === "Video" || isVideoMedia({ src: a.src, type: a.mediaType }) ? (
+                    <video src={a.src} muted preload="metadata" />
+                  ) : (
+                    <img src={a.src} alt="" />
+                  )
+                ) : <I.Image size={38} />}
               </div>
               <b>{a.name}</b>
               <small>{a.type}</small>
@@ -3821,7 +3845,7 @@ function AssetsV2({ data, setData }) {
         <div className="empty">
           <I.Images />
           <h3>Your asset library is empty</h3>
-          <p>Upload images directly or drop a ZIP with organized folders.</p>
+          <p>Upload images or videos directly, or drop a ZIP with organized image folders.</p>
         </div>
       )}
       {preview && (
@@ -3830,7 +3854,11 @@ function AssetsV2({ data, setData }) {
             <button className="icon" onClick={() => setPreview(null)}>
               <I.X />
             </button>
-            <img src={preview.src} />
+            {preview.type === "Video" || isVideoMedia({ src: preview.src, type: preview.mediaType }) ? (
+              <video src={preview.src} controls playsInline preload="metadata" />
+            ) : (
+              <img src={preview.src} alt="" />
+            )}
             <h3>{preview.name}</h3>
             <p>{preview.type}</p>
           </div>
@@ -5359,6 +5387,45 @@ const publishPlatforms = [
   "YouTube Shorts",
   "YouTube Video",
 ];
+function mediaType(media) {
+  if (!media) return "";
+  if (typeof media === "object" && media.type) return media.type;
+  let src = typeof media === "object" ? media.src : media;
+  if (/^data:video\//.test(src || "") || /\.(?:mp4|webm|mov|m4v)(?:[?#]|$)/i.test(src || ""))
+    return "video/mp4";
+  if (/^data:image\//.test(src || "") || /\.(?:jpe?g|png|webp|gif)(?:[?#]|$)/i.test(src || ""))
+    return "image/jpeg";
+  return "";
+}
+function isVideoMedia(media) {
+  return mediaType(media).startsWith("video/");
+}
+function mediaObject(media, fallbackType = "") {
+  if (typeof media === "object")
+    return { ...media, type: media.type || mediaType(media) || fallbackType };
+  return { src: media, type: mediaType(media) || fallbackType };
+}
+const videoPlacements = new Set([
+  "Instagram Story",
+  "Instagram Reel",
+  "Facebook Feed",
+  "Facebook Story",
+  "Facebook Reel",
+  "TikTok",
+  "Pinterest Video Pin",
+  "YouTube Shorts",
+  "YouTube Video",
+]);
+const imagePlacements = new Set([
+  "Instagram Feed",
+  "Instagram Story",
+  "Facebook Feed",
+  "Facebook Story",
+  "Pinterest Pin",
+]);
+function placementAccepts(platform, kind) {
+  return kind === "video" ? videoPlacements.has(platform) : imagePlacements.has(platform);
+}
 const platformSpecs = {
   "Instagram Feed": {
     w: 1080,
@@ -5382,7 +5449,7 @@ const platformSpecs = {
     w: 1080,
     h: 1920,
     label: "Reel · 9:16",
-    publishable: false,
+    publishable: true,
   },
   "Facebook Feed": {
     w: 1080,
@@ -5417,7 +5484,15 @@ const platformSpecs = {
 function platformSpec(name) {
   return platformSpecs[name] || platformSpecs["Instagram Feed"];
 }
-function platformOutput(src, spec) {
+function platformOutput(media, spec) {
+  let item = mediaObject(media);
+  if (isVideoMedia(item))
+    return Promise.resolve({
+      ...item,
+      width: spec.w,
+      height: spec.h,
+      passthrough: true,
+    });
   return new Promise((resolve, reject) => {
     let image = new Image();
     image.onload = () => {
@@ -5431,11 +5506,17 @@ function platformOutput(src, spec) {
       ctx.fillStyle = "#fff";
       ctx.fillRect(0, 0, spec.w, spec.h);
       ctx.drawImage(image, (spec.w - w) / 2, (spec.h - h) / 2, w, h);
-      resolve(canvas.toDataURL("image/jpeg", 0.92));
+      resolve({
+        ...item,
+        src: canvas.toDataURL("image/jpeg", 0.92),
+        type: "image/jpeg",
+        width: spec.w,
+        height: spec.h,
+      });
     };
     image.onerror = () =>
       reject(new Error("A finished image could not be formatted"));
-    image.src = src;
+    image.src = item.src;
   });
 }
 function defaultPlatformCopy(platform, idea) {
@@ -5488,8 +5569,11 @@ function DistributionPanelV2({ item, idea, update, notify }) {
         ? item.generatedVariants
         : item.rendered
           ? [{ src: item.rendered }]
-          : [];
+          : [],
+    kind = rawMedia.some(isVideoMedia) || item.format === "Video" ? "video" : "image";
   const toggle = (p) => {
+    if (rawMedia.length && !placementAccepts(p, kind))
+      return notify(`${p} does not accept this ${kind} format`);
     if (selected.includes(p)) {
       let n = selected.filter((x) => x !== p);
       setSelected(n);
@@ -5512,6 +5596,8 @@ function DistributionPanelV2({ item, idea, update, notify }) {
       },
     });
   const save = async () => {
+    if (selected.some((p) => !placementAccepts(p, kind)))
+      return notify(`Remove destinations that do not accept ${kind}`);
     setFormatting(true);
     try {
       let complete = { ...versions };
@@ -5520,11 +5606,7 @@ function DistributionPanelV2({ item, idea, update, notify }) {
           current = complete[p] || defaultPlatformCopy(p, idea),
           outputImages = rawMedia.length
             ? await Promise.all(
-                rawMedia.map(async (media) => ({
-                  src: await platformOutput(media.src || media, spec),
-                  width: spec.w,
-                  height: spec.h,
-                })),
+                rawMedia.map((media) => platformOutput(media, spec)),
               )
             : [];
         complete[p] = {
@@ -5554,7 +5636,9 @@ function DistributionPanelV2({ item, idea, update, notify }) {
   };
   let v = active ? versions[active] || defaultPlatformCopy(active, idea) : null,
     spec = platformSpec(active),
-    media = v?.outputImages?.length ? v.outputImages : rawMedia;
+    media = (v?.outputImages?.length ? v.outputImages : rawMedia).map((item) =>
+      mediaObject(item, kind === "video" ? "video/mp4" : "image/jpeg"),
+    );
   return (
     <div className="distV2">
       <div className="distHead">
@@ -5575,6 +5659,8 @@ function DistributionPanelV2({ item, idea, update, notify }) {
           <button
             key={p}
             className={selected.includes(p) ? "selected" : ""}
+            disabled={!!rawMedia.length && !placementAccepts(p, kind)}
+            title={rawMedia.length && !placementAccepts(p, kind) ? `Not available for ${kind}` : ""}
             onClick={() => toggle(p)}
           >
             {selected.includes(p) && <I.Check size={13} />} {p}
@@ -5632,7 +5718,11 @@ function DistributionPanelV2({ item, idea, update, notify }) {
                         key={i}
                         className={i ? "previewSlide secondarySlide" : ""}
                       >
-                        <img src={m.src} />
+                        {isVideoMedia(m) ? (
+                          <video src={m.src} controls muted preload="metadata" />
+                        ) : (
+                          <img src={m.src} alt="" />
+                        )}
                         {media.length > 1 && (
                           <span>
                             {i + 1}/{media.length}
@@ -5655,13 +5745,16 @@ function DistributionPanelV2({ item, idea, update, notify }) {
                   </span>
                   <span>
                     <I.Layers3 size={14} />
-                    {media.length > 1
-                      ? `${media.length} carousel slides`
-                      : "Single image"}
+                    {kind === "video"
+                      ? "Video"
+                      : media.length > 1
+                        ? `${media.length} carousel slides`
+                        : "Single image"}
                   </span>
                   <p>
-                    Saving creates an exact {spec.w} × {spec.h} output for this
-                    placement. The full creative is preserved on a clean canvas.
+                    {kind === "video"
+                      ? `The original video is preserved. Confirm it is framed for ${spec.w} × ${spec.h} before publishing.`
+                      : `Saving creates an exact ${spec.w} × ${spec.h} output for this placement. The full creative is preserved on a clean canvas.`}
                   </p>
                   {!spec.publishable && <span className="exportOnly"><I.Info size={14}/>Export only — direct publishing is not available for this placement yet.</span>}
                 </div>
@@ -5757,12 +5850,17 @@ function calendarItems(data) {
   data.production.forEach((p) => {
     let idea = data.ideas.find((i) => i.id === p.ideaId),
       dest = p.destinations?.length ? p.destinations : p.platforms || [],
-      sourceImages = (p.carouselImages || [])
-        .map((x) => x.src || x)
-        .filter(Boolean);
+      sourceMedia = (p.carouselImages || [])
+        .map((x) => mediaObject(x, p.format === "Video" ? "video/mp4" : "image/jpeg"))
+        .filter((x) => x.src),
+      sourceImages = sourceMedia.map((x) => x.src);
     dest.forEach((platform) => {
       let v = p.versions?.[platform],
-        images = (v?.outputImages || []).map((x) => x.src || x).filter(Boolean);
+        outputMedia = (v?.outputImages || [])
+          .map((x) => mediaObject(x, p.format === "Video" ? "video/mp4" : "image/jpeg"))
+          .filter((x) => x.src),
+        mediaItems = outputMedia.length ? outputMedia : sourceMedia,
+        images = mediaItems.map((x) => x.src);
       if (v?.date)
         out.push({
           id: `${p.id}::${platform}`,
@@ -5780,6 +5878,8 @@ function calendarItems(data) {
           link: v.link || "",
           image: images[0] || p.rendered,
           images: images.length ? images : sourceImages,
+          mediaItems,
+          mediaType: mediaItems[0]?.type || "",
           dimensions:
             v.dimensions ||
             `${platformSpec(platform).w} × ${platformSpec(platform).h}`,
@@ -5803,6 +5903,8 @@ function calendarItems(data) {
         cta: "Learn more",
         image: p.rendered,
         images: sourceImages,
+        mediaItems: sourceMedia,
+        mediaType: sourceMedia[0]?.type || "",
         dimensions: `${platformSpec(dest[0] || "Instagram Feed").w} × ${platformSpec(dest[0] || "Instagram Feed").h}`,
         narrativeBrief: p.narrativeBrief || idea?.narrativeBrief,
         idea,
@@ -5878,8 +5980,20 @@ function FinishedContentPlanner({ close, data, save, notify }) {
         status: "Draft",
       },
     })),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState(false),
+    [uploadProgress, setUploadProgress] = useState(0);
+  const kind = media.some(isVideoMedia) ? "video" : "image";
+  const versionFor = (platform) => ({
+    ...publishingCopy(platform, title || "New content"),
+    cta: data.brand?.cta || "Learn more",
+    link: "",
+    date: "",
+    time: platform.includes("Pinterest") ? "20:30" : "10:00",
+    status: "Draft",
+  });
   const toggle = (platform) => {
+    if (media.length && !placementAccepts(platform, kind))
+      return notify(`${platform} does not accept this ${kind} format`);
     if (selected.includes(platform)) {
       if (selected.length === 1)
         return notify("Keep at least one publishing destination");
@@ -5887,18 +6001,10 @@ function FinishedContentPlanner({ close, data, save, notify }) {
       setSelected(next);
       if (active === platform) setActive(next[0]);
     } else {
-      let copy = publishingCopy(platform, title || "New content");
       setSelected([...selected, platform]);
       setVersions({
         ...versions,
-        [platform]: {
-          ...copy,
-          cta: data.brand?.cta || "Learn more",
-          link: "",
-          date: "",
-          time: platform.includes("Pinterest") ? "20:30" : "10:00",
-          status: "Draft",
-        },
+        [platform]: versionFor(platform),
       });
       setActive(platform);
     }
@@ -5915,26 +6021,61 @@ function FinishedContentPlanner({ close, data, save, notify }) {
     );
     if (!accepted.length)
       return notify("Choose finished image or video files");
+    let incomingKind = accepted[0].type.startsWith("video/") ? "video" : "image";
+    if (accepted.some((file) => (file.type.startsWith("video/") ? "video" : "image") !== incomingKind))
+      return notify("Create separate publishing plans for images and videos");
+    if (media.length && kind !== incomingKind)
+      return notify("Create separate publishing plans for images and videos");
+    if (incomingKind === "video" && (accepted.length > 1 || media.length))
+      return notify("Upload one finished video per publishing plan");
     setBusy(true);
+    setUploadProgress(0);
     try {
       let next = [];
       for (let file of accepted) {
-        if (file.size > 25_000_000)
-          throw new Error(`${file.name} is larger than 25 MB`);
+        let limit = incomingKind === "video" ? 500_000_000 : 25_000_000;
+        if (file.size > limit)
+          throw new Error(`${file.name} is larger than ${incomingKind === "video" ? "500" : "25"} MB`);
+        let src;
+        if (incomingKind === "video") {
+          let safeName = file.name.replace(/[^a-z0-9._-]+/gi, "-");
+          let blob = await uploadBlob(`scheduled-videos/${Date.now()}-${safeName}`, file, {
+            access: "public",
+            handleUploadUrl: "/api/session?action=media-upload",
+            multipart: file.size > 100_000_000,
+            onUploadProgress: ({ percentage }) => setUploadProgress(Math.round(percentage)),
+          });
+          src = blob.url;
+        } else {
+          src = await optimizedJpegData(file);
+        }
         next.push({
           id: `upload-${Date.now()}-${next.length}`,
           name: file.name,
           type: file.type,
-          src: file.type.startsWith("image/")
-            ? await optimizedJpegData(file)
-            : await fileData(file),
+          size: file.size,
+          src,
         });
       }
       setMedia((current) => [...current, ...next]);
+      if (incomingKind === "video") {
+        let compatible = selected.filter((platform) => placementAccepts(platform, "video"));
+        if (!compatible.length) compatible = ["Instagram Reel"];
+        setSelected(compatible);
+        setActive(compatible[0]);
+        setVersions((current) => {
+          let complete = { ...current };
+          compatible.forEach((platform) => {
+            complete[platform] = complete[platform] || versionFor(platform);
+          });
+          return complete;
+        });
+      }
     } catch (error) {
       notify(error.message || "Upload failed");
     } finally {
       setBusy(false);
+      setUploadProgress(0);
     }
   };
   const adapt = () => {
@@ -5948,6 +6089,8 @@ function FinishedContentPlanner({ close, data, save, notify }) {
   const submit = (scheduled) => {
     if (!title.trim()) return notify("Add an internal content title");
     if (!media.length) return notify("Upload at least one finished file");
+    if (selected.some((platform) => !placementAccepts(platform, kind)))
+      return notify(`Choose ${kind}-compatible publishing destinations`);
     if (
       scheduled &&
       selected.some((platform) => {
@@ -5981,7 +6124,7 @@ function FinishedContentPlanner({ close, data, save, notify }) {
         status: "approved",
         platforms: selected,
         destinations: selected,
-        format: media.length > 1 ? "Carousel" : "Finished content",
+        format: media.length > 1 ? "Carousel" : kind === "video" ? "Video" : "Single image",
         revisions: [],
       },
       production: {
@@ -5989,7 +6132,7 @@ function FinishedContentPlanner({ close, data, save, notify }) {
         ideaId: `idea-${id}`,
         title,
         campaign: campaign || "Uploaded content",
-        format: media.length > 1 ? "Carousel" : media[0].type.startsWith("video/") ? "Video" : "Single image",
+        format: media.length > 1 ? "Carousel" : kind === "video" ? "Video" : "Single image",
         platforms: selected,
         destinations: selected,
         versions: complete,
@@ -6021,13 +6164,17 @@ function FinishedContentPlanner({ close, data, save, notify }) {
           <section>
             <label className="finishedDrop" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); addFiles(e.dataTransfer.files); }}>
               {busy ? <I.LoaderCircle className="spin" /> : <I.UploadCloud />}
-              <b>{busy ? "Preparing files…" : "Drop finished images or videos"}</b>
-              <span>Select multiple files for a carousel · 25 MB maximum per file</span>
+              <b>{busy ? `Uploading video… ${uploadProgress}%` : "Drop finished images or videos"}</b>
+              <span>Multiple images create a carousel · one MP4, WebM, MOV or M4V up to 500 MB</span>
               <input type="file" multiple accept="image/*,video/*" onChange={(e) => addFiles(e.target.files)} />
             </label>
             {!!media.length && <div className="finishedFiles">{media.map((asset, index) => (
               <article key={asset.id}>
-                {asset.type.startsWith("image/") ? <img src={asset.src} /> : <I.PlayCircle />}
+                {asset.type.startsWith("image/") ? (
+                  <img src={asset.src} alt="" />
+                ) : (
+                  <video src={asset.src} controls muted preload="metadata" />
+                )}
                 <span><b>{asset.name}</b><small>{asset.type}</small></span>
                 <button onClick={() => setMedia(media.filter((_, i) => i !== index))}><I.X size={14} /></button>
               </article>
@@ -6038,7 +6185,13 @@ function FinishedContentPlanner({ close, data, save, notify }) {
             </div>
             <div className="plannerSectionHead"><div><h3>Publishing destinations</h3><p>Each placement receives its own copy, dimensions and time.</p></div></div>
             <div className="plannerPlatforms">{publishPlatforms.map((platform) => (
-              <button key={platform} className={selected.includes(platform) ? "selected" : ""} onClick={() => toggle(platform)}>
+              <button
+                key={platform}
+                className={selected.includes(platform) ? "selected" : ""}
+                disabled={!!media.length && !placementAccepts(platform, kind)}
+                title={media.length && !placementAccepts(platform, kind) ? `Not available for ${kind}` : ""}
+                onClick={() => toggle(platform)}
+              >
                 <PlatformMark name={platform} />{platform}{selected.includes(platform) && <I.Check size={13} />}
               </button>
             ))}</div>
@@ -6482,19 +6635,28 @@ function CalendarEvent({ item, open }) {
 function PublishDetail({ entry, close, update, remove, notify }) {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
-    isInstagram =
+    isInstagramFeed =
       entry.platform === "Instagram Feed" ||
       entry.platform === "Instagram" ||
       entry.platform === "Instagram Carousel",
+    isInstagramReel = entry.platform === "Instagram Reel",
     isFacebook = entry.platform === "Facebook Feed" || entry.platform === "Facebook",
-    directPublish = isInstagram || isFacebook,
-    media = entry.images?.length
-      ? entry.images
-      : entry.image
-        ? [entry.image]
-        : [],
+    media = entry.mediaItems?.length
+      ? entry.mediaItems.map((item) => mediaObject(item))
+      : entry.images?.length
+        ? entry.images.map((src) => mediaObject(src, entry.mediaType || (entry.format === "Video" ? "video/mp4" : "image/jpeg")))
+        : entry.image
+          ? [mediaObject(entry.image, entry.mediaType || (entry.format === "Video" ? "video/mp4" : "image/jpeg"))]
+          : [],
+    hasVideo = media.some(isVideoMedia),
+    directPublish =
+      isFacebook ||
+      (isInstagramReel && hasVideo) ||
+      (isInstagramFeed && !hasVideo),
     dimensions = entry.dimensions || `${platformSpec(entry.platform).w} × ${platformSpec(entry.platform).h}`,
-    placementNote = isInstagram
+    placementNote = isInstagramReel && hasVideo
+      ? `This is an Instagram Reel placement (${dimensions}). Publishing creates a real Reel.`
+      : isInstagramFeed
       ? `This is an Instagram Feed placement (${dimensions}). Publishing creates a real ${media.length > 1 ? "carousel" : "feed post"}.`
       : isFacebook
         ? `This is a Facebook Page Feed placement (${dimensions}). Publishing creates a real Page post.`
@@ -6507,10 +6669,17 @@ function PublishDetail({ entry, close, update, remove, notify }) {
   };
   const download = () => {
     if (!media.length) return notify("No finished media is attached");
-    media.forEach((src, i) => {
+    media.forEach((item, i) => {
       let a = document.createElement("a");
-      a.href = src;
-      a.download = `${entry.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}${media.length > 1 ? `-slide-${i + 1}` : ""}.jpg`;
+      a.href = item.src;
+      let ext = isVideoMedia(item)
+        ? item.type === "video/webm"
+          ? "webm"
+          : item.type === "video/quicktime"
+            ? "mov"
+            : "mp4"
+        : "jpg";
+      a.download = `${entry.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}${media.length > 1 ? `-slide-${i + 1}` : ""}.${ext}`;
       a.click();
     });
   };
@@ -6521,7 +6690,7 @@ function PublishDetail({ entry, close, update, remove, notify }) {
   const publishNow = async () => {
     if (!media.length)
       return setError("Attach finished media before publishing.");
-    let description = media.length > 1 ? `a ${media.length}-image post` : "a feed image",
+    let description = hasVideo ? "a video" : media.length > 1 ? `a ${media.length}-image post` : "a feed image",
       channel = isFacebook ? "Facebook Page" : "Instagram";
     if (
       !confirm(
@@ -6537,8 +6706,11 @@ function PublishDetail({ entry, close, update, remove, notify }) {
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            image: media[0],
-            images: media,
+            image: media[0]?.src,
+            images: media.map((item) => item.src),
+            media,
+            video: hasVideo ? media[0]?.src : "",
+            placement: entry.platform,
             title: entry.title,
             caption: `${entry.caption || ""}\n\n${entry.hashtags || ""}`.trim(),
           }),
@@ -6585,9 +6757,13 @@ function PublishDetail({ entry, close, update, remove, notify }) {
               <div
                 className={`publishMediaGrid ${media.length === 1 ? "single" : ""}`}
               >
-                {media.map((src, i) => (
+                {media.map((item, i) => (
                   <figure key={i}>
-                    <img src={src} />
+                    {isVideoMedia(item) ? (
+                      <video src={item.src} controls playsInline preload="metadata" />
+                    ) : (
+                      <img src={item.src} alt="" />
+                    )}
                     {media.length > 1 && <span>{i + 1}</span>}
                   </figure>
                 ))}
@@ -6600,7 +6776,7 @@ function PublishDetail({ entry, close, update, remove, notify }) {
             )}
             <button onClick={download}>
               <I.Download size={16} />
-              Download {media.length > 1 ? "carousel" : "image"}
+              Download {hasVideo ? "video" : media.length > 1 ? "carousel" : "image"}
             </button>
           </div>
           <section>
@@ -6608,7 +6784,7 @@ function PublishDetail({ entry, close, update, remove, notify }) {
               <span className={`statusPill ${entry.status.toLowerCase()}`}>
                 {entry.status}
               </span>
-              {media.length > 1 && <small>{media.length}-slide carousel</small>}
+              {hasVideo ? <small>Video</small> : media.length > 1 && <small>{media.length}-slide carousel</small>}
               {entry.status === "Published" && (
                 <small>
                   {entry.facebookPostId
