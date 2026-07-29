@@ -2088,7 +2088,7 @@ function SettingsV2({ data, setData, notify }) {
   const refresh = async () => {
     setState((s) => ({ ...s, loading: true }));
     try {
-      let r = await fetch("/api/instagram/status", { credentials: "include" }),
+      let r = await fetch("/api/instagram/account?action=status", { credentials: "include" }),
         body = await r.json();
       setState({ ...body, loading: false });
     } catch {
@@ -2123,7 +2123,7 @@ function SettingsV2({ data, setData, notify }) {
   }, []);
   const test = async () => {
     try {
-      let r = await fetch("/api/instagram/test", { credentials: "include" }),
+      let r = await fetch("/api/instagram/account?action=test", { credentials: "include" }),
         body = await r.json();
       if (!r.ok) throw new Error(body.error || "Connection test failed");
       notify(`Instagram connection verified for @${body.username}`);
@@ -2140,7 +2140,7 @@ function SettingsV2({ data, setData, notify }) {
       return;
     setDisconnecting(true);
     try {
-      let r = await fetch("/api/instagram/disconnect", {
+      let r = await fetch("/api/instagram/account?action=disconnect", {
         method: "POST",
         credentials: "include",
       });
