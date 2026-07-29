@@ -2422,7 +2422,7 @@ function OAuthConnection({ provider, notify }) {
     setState((current) => ({ ...current, loading: true }));
     try {
       let response = await fetch(
-          `/api/${provider.id}/account?action=status`,
+          `/api/social/${provider.id}/account?mode=status`,
           { credentials: "include" },
         ),
         body = await response.json();
@@ -2459,7 +2459,7 @@ function OAuthConnection({ provider, notify }) {
   const test = async () => {
     try {
       let response = await fetch(
-          `/api/${provider.id}/account?action=test`,
+          `/api/social/${provider.id}/account?mode=test`,
           { credentials: "include" },
         ),
         body = await response.json();
@@ -2481,7 +2481,7 @@ function OAuthConnection({ provider, notify }) {
     setDisconnecting(true);
     try {
       let response = await fetch(
-        `/api/${provider.id}/account?action=disconnect`,
+          `/api/social/${provider.id}/account?mode=disconnect`,
         { method: "POST", credentials: "include" },
       );
       if (!response.ok) throw new Error();
@@ -2595,7 +2595,7 @@ function OAuthConnection({ provider, notify }) {
             <>
               <a
                 className="primary connectInstagram"
-                href={`/api/${provider.id}/connect`}
+            href={`/api/social/${provider.id}/connect`}
               >
                 <PlatformMark name={provider.name} />
                 Connect {provider.name}
